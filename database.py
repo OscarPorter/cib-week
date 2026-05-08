@@ -1,10 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
 import sqlite3
-from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
 
-app = Flask(__name__)
-app.secret_key = 'super_secret_finance_key'
 DB = 'finance.db'
 
 def get_db():
@@ -33,7 +28,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS budgets (
                          budget_id INTEGER PRIMARY KEY,
                          customer_id INTEGER,
-                         limit REAL,
+                         maximum_amount REAL,
+                         current_amount REAL,
                          start_date DATETIME,
                          end_date DATETIME,
                          FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
@@ -64,7 +60,7 @@ def init_db():
                          name TEXT,
                          description TEXT,
                          amount REAL,
-                         transaction_date DATETIME
+                         transaction_date DATETIME,
                          FOREIGN KEY (account_id) REFERENCES accounts(account_id) );
 
             CREATE TABLE IF NOT EXISTS recurring_transactions (
@@ -78,7 +74,7 @@ def init_db():
                          next_date DATETIME,
                          frequency INTEGER,
                          frequency_type TEXT,
-                         is_active BOOL DEFAULT 1
+                         is_active BOOL DEFAULT 1,
                          FOREIGN KEY (account_id) REFERENCES accounts(account_id) );
             
             CREATE TABLE IF NOT EXISTS teams (
