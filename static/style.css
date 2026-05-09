@@ -1,0 +1,232 @@
+:root {
+    color-scheme: light;
+    --bg: #edf7ff;
+    --surface: rgba(255,255,255,0.78);
+    --surface-strong: rgba(241,249,255,0.88);
+    --text: #102a43;
+    --muted: #627d9c;
+    --primary: #2563eb;
+    --primary-soft: #dbeafe;
+    --success: #14b8a6;
+    --danger: #dc2626;
+    --border: rgba(37,99,235,0.16);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 30%),
+                radial-gradient(circle at bottom right, rgba(34,197,94,0.10), transparent 28%),
+                linear-gradient(180deg, var(--bg) 0%, #eef7ff 100%);
+    color: var(--text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.bg-soft {
+    background: none;
+}
+
+.navbar {
+    min-height: 74px;
+    background: rgba(255,255,255,0.86);
+    border-bottom: 1px solid rgba(37,99,235,0.12);
+    box-shadow: 0 26px 80px rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(14px);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.navbar-brand {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.main-content {
+    padding-top: 104px;
+    padding-bottom: 48px;
+}
+
+.page-heading {
+    font-size: clamp(2rem, 2.6vw, 2.4rem);
+    letter-spacing: -0.04em;
+    color: #0f172a;
+}
+
+.status-pill {
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0.55rem 1rem;
+    background: linear-gradient(135deg, rgba(37,99,235,0.12), rgba(37,99,235,0.04));
+    color: #1d4ed8;
+    border: 1px solid rgba(37,99,235,0.12);
+}
+
+.card-surface,
+.parking-card,
+.login-card {
+    background: var(--surface);
+    border: 1px solid rgba(255,255,255,0.55);
+    box-shadow: 0 30px 80px rgba(15, 23, 42, 0.08);
+    border-radius: 30px;
+    backdrop-filter: blur(18px);
+}
+
+.card-surface {
+    padding: 1.75rem;
+}
+
+.parking-card {
+    padding: 1.45rem;
+}
+
+.parking-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 14px;
+    margin-top: 1.35rem;
+}
+
+.spot {
+    min-height: 96px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 22px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
+    user-select: none;
+    border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.spot::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at top left, rgba(255,255,255,0.45), transparent 40%);
+    opacity: 0.65;
+    pointer-events: none;
+}
+
+.spot.available {
+    background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+    color: #0f5132;
+    border: 1px solid rgba(34,197,94,0.18);
+    cursor: pointer;
+}
+
+.spot.available:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 22px 38px rgba(37,99,235,0.14);
+}
+
+.spot.occupied {
+    background: linear-gradient(180deg, #fff1f2 0%, #fee2e2 100%);
+    color: #991b1b;
+    border: 1px solid rgba(248,113,113,0.24);
+    cursor: not-allowed;
+    opacity: 0.96;
+}
+
+.spot.selected {
+    background: linear-gradient(135deg, #2563eb 0%, #5b21b6 100%);
+    color: #ffffff;
+    border-color: rgba(37,99,235,0.4);
+    box-shadow: 0 22px 40px rgba(37,99,235,0.22);
+    transform: translateY(-2px);
+}
+
+.spot-label {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.form-control,
+.btn,
+.table {
+    border-radius: 16px;
+}
+
+.form-control {
+    border: 1px solid rgba(15,23,42,0.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+    background: #ffffff;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    border-color: transparent;
+    box-shadow: 0 18px 32px rgba(37,99,235,0.18);
+}
+
+.btn-outline-primary {
+    border-radius: 999px;
+    border-color: rgba(37,99,235,0.18);
+    color: #2563eb;
+}
+
+.table {
+    background: rgba(255,255,255,0.95);
+}
+
+.table thead th {
+    background: rgba(37,99,235,0.06);
+    border-bottom: 1px solid rgba(37,99,235,0.10);
+    color: #102a43;
+}
+
+.table tbody tr {
+    border-bottom: 1px solid rgba(37,99,235,0.06);
+}
+
+.table tbody tr:hover {
+    background: rgba(37,99,235,0.05);
+}
+
+.table thead th,
+.table tbody td {
+    vertical-align: middle;
+}
+
+.table-responsive {
+    border-radius: 24px;
+    overflow: hidden;
+}
+
+.login-card {
+    max-width: 440px;
+    margin: 2.5rem auto;
+    padding: 1.75rem;
+    border-radius: 30px;
+}
+
+.login-card .form-control {
+    border-radius: 14px;
+}
+
+.login-card .btn {
+    border-radius: 999px;
+}
+
+.alert-custom {
+    border-radius: 16px;
+    border: 1px solid rgba(37,99,235,0.16);
+    background: rgba(37,99,235,0.08);
+    color: #0f172a;
+}
+
+footer {
+    margin-top: 2rem;
+    color: var(--muted);
+    text-align: center;
+    font-size: 0.9rem;
+}
