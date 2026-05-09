@@ -29,7 +29,6 @@ def init_db():
                          budget_id INTEGER PRIMARY KEY,
                          customer_id INTEGER,
                          maximum_amount REAL,
-                         current_amount REAL,
                          start_date DATETIME,
                          end_date DATETIME,
                          FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
@@ -40,7 +39,6 @@ def init_db():
                          account_id INTEGER,
                          name TEXT,
                          target_amount REAL,
-                         current_amount REAL,
                          deadline DATETIME,
                          FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
             
