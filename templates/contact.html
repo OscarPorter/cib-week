@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Contact DWK{% endblock %}
+{% block body %}
+<main class="container">
+    <div class="legal-page contact-page">
+        <div class="legal-header">
+            <h1>Contact DWK</h1>
+            <p class="last-updated">Get in touch with our support team for help with your account, security, or product questions.</p>
+        </div>
+
+        <div class="legal-content contact-content">
+            <section>
+                <h2>Support Channels</h2>
+                <div class="contact-info-grid">
+                    <div class="contact-info contact-card">
+                        <p><strong>Email support</strong></p>
+                        <p><a href="mailto:support@dwk.co.uk">support@dwk.co.uk</a></p>
+                    </div>
+                    <div class="contact-info contact-card">
+                        <p><strong>Phone</strong></p>
+                        <p><a href="tel:+441234567890">+44 1234 567 890</a></p>
+                    </div>
+                    <div class="contact-info contact-card">
+                        <p><strong>Office</strong></p>
+                        <p>DWK Offices, 10 Castle Lane West, Bournemouth BH8 8AU, United Kingdom</p>
+                    </div>
+                    <div class="contact-info contact-card">
+                        <p><strong>Support hours</strong></p>
+                        <p>Mon–Fri, 08:30–18:00 GMT</p>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>Need immediate help?</h2>
+                <p>
+                    For account access, password resets, or security concerns, email our support team directly. Please include your company name and a brief description of the issue.
+                </p>
+            </section>
+
+            <section>
+                <h2>About the team</h2>
+                <p>
+                    DWK is supported by a dedicated web services team. If you want to learn more about the site development, visit the <a href="{{ url_for('about_vectura') }}" class="text-decoration-none">Vectura team page</a>.
+                </p>
+            </section>
+
+            <section>
+                <h2>Privacy & security</h2>
+                <p>
+                    We handle all enquiries securely and in line with our <a href="{{ url_for('privacy') }}" class="text-decoration-none">Privacy Policy</a>. If you have any concerns about data handling, please contact us using the email above.
+                </p>
+            </section>
+        </div>
+
+        <div class="legal-footer">
+            <a href="{{ url_for('login') }}" class="btn btn-outline-primary">Back to Login</a>
+        </div>
+    </div>
+</main>
+{% endblock %}

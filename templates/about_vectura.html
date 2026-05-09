@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}About Vectura - DWK{% endblock %}
+{% block body %}
+<main class="container">
+    <div class="legal-page">
+        <div class="legal-header">
+            <h1>About Vectura</h1>
+            <p class="last-updated">A dedicated web development team for DWK</p>
+        </div>
+
+        <div class="legal-content">
+            <section>
+                <h2>Our Mission</h2>
+                <p>
+                    Vectura is the development team responsible for creating DWK's digital experience. Our mission is to deliver a secure, user-friendly platform that helps businesses manage financial workflows with confidence.
+                </p>
+            </section>
+
+            <section>
+                <h2>What We Do</h2>
+                <ul>
+                    <li>Design and build responsive user interfaces</li>
+                    <li>Develop secure authentication and session management</li>
+                    <li>Create polished, professional legal and compliance pages</li>
+                    <li>Ensure the site works well across desktop and mobile devices</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Team Values</h2>
+                <p>
+                    We prioritise clarity, accessibility, and security in every feature. We also work to provide a modern, professional experience aligned with DWK's brand and UK regulatory expectations.
+                </p>
+            </section>
+
+            <section>
+                <h2>Contact</h2>
+                <p>
+                    For more information about the Vectura team or this project, please contact the DWK team through the main DWK support channels.
+                </p>
+            </section>
+        </div>
+
+        <div class="legal-footer">
+            <a href="{{ url_for('login') }}" class="btn btn-outline-primary">Back to Login</a>
+        </div>
+    </div>
+</main>
+{% endblock %}

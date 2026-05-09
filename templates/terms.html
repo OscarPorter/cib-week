@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Terms of Service - DWK{% endblock %}
+{% block body %}
+<main class="container">
+    <div class="legal-page">
+        <div class="legal-header">
+            <h1>Terms of Service</h1>
+            <p class="last-updated">Last Updated: May 9, 2026</p>
+        </div>
+
+        <div class="legal-content">
+            <section>
+                <h2>1. Agreement to Terms</h2>
+                <p>
+                    By accessing and using DWK (the "Service"), you agree to be bound by these Terms of Service. If you do not agree to abide by these terms, please do not use the Service.
+                </p>
+                <p>
+                    The website front-end was developed by the <a href="{{ url_for('about_vectura') }}" class="text-decoration-none">Vectura</a> team on behalf of DWK.
+                </p>
+            </section>
+
+            <section>
+                <h2>2. Use License</h2>
+                <p>Permission is granted to temporarily download one copy of the materials (information or software) on DWK for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:</p>
+                <ul>
+                    <li>Modify or copy the materials</li>
+                    <li>Use the materials for any commercial purpose or for any public display</li>
+                    <li>Attempt to decompile or reverse engineer any software contained on DWK</li>
+                    <li>Remove any copyright or other proprietary notations from the materials</li>
+                    <li>Transfer the materials to another person or "mirror" the materials on any other server</li>
+                    <li>Attempt to gain unauthorized access to any portion or feature of DWK</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>3. Account Registration and Security</h2>
+                <p>
+                    To access certain features of the Service, you may be required to create an account. When creating an account, you must provide accurate, current, and complete information. You are responsible for maintaining the confidentiality of your password and account information and for all activities that occur under your account.
+                </p>
+                <p>
+                    You agree to notify us immediately of any unauthorized use of your account. We are not responsible for any loss or damage resulting from your failure to protect your account credentials.
+                </p>
+            </section>
+
+            <section>
+                <h2>4. Disclaimer of Warranties</h2>
+                <p>
+                    The materials on DWK are provided on an 'as is' basis. DWK makes no warranties, expressed or implied, and hereby disclaims all warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement.
+                </p>
+                <p>
+                    Further, DWK does not warrant the accuracy, completeness, or reliability of the materials on its website or the results obtained from using them.
+                </p>
+            </section>
+
+            <section>
+                <h2>5. Limitations of Liability</h2>
+                <p>
+                    To the fullest extent permitted by applicable law, DWK and its affiliates shall not be liable for any losses or damages arising out of your use of, or inability to use, the Service, even if DWK has been advised of the possibility of such losses.
+                </p>
+            </section>
+
+            <section>
+                <h2>6. Accuracy of Materials</h2>
+                <p>
+                    The materials appearing on DWK may include technical, typographical, or photographic errors. We do not warrant that any of the materials on the Service are accurate, complete, or current. We may make changes without notice.
+                </p>
+            </section>
+
+            <section>
+                <h2>7. External Links</h2>
+                <p>
+                    DWK may contain links to third-party websites. We are not responsible for the content or practices of any linked sites, and inclusion of a link does not imply endorsement. Use of any external website is at your own risk.
+                </p>
+            </section>
+
+            <section>
+                <h2>8. Modifications</h2>
+                <p>
+                    We may revise these Terms of Service at any time. By continuing to use the Service after changes are posted, you agree to be bound by the revised terms.
+                </p>
+            </section>
+
+            <section>
+                <h2>9. Governing Law</h2>
+                <p>
+                    These terms are governed by and construed in accordance with the laws of England and Wales. You agree that any disputes arising from your use of the Service will be subject to the exclusive jurisdiction of the courts of England and Wales.
+                </p>
+            </section>
+
+            <section>
+                <h2>10. User Conduct</h2>
+                <p>You agree not to use the Service in any way that:</p>
+                <ul>
+                    <li>Is unlawful, fraudulent, or deceptive</li>
+                    <li>Violates any applicable law or regulation</li>
+                    <li>Infringes intellectual property or other rights</li>
+                    <li>Harasses, abuses, or threatens any person</li>
+                    <li>Introduces viruses, malware, or other harmful code</li>
+                    <li>Attempts to gain unauthorized access to our systems</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>11. Financial Data Integrity</h2>
+                <p>
+                    While we strive to maintain accurate financial data, you acknowledge that financial information may be subject to delays or errors. You agree to verify all transactions and balances through official statements. We are not liable for decisions made based on information provided by the Service.
+                </p>
+            </section>
+
+            <section>
+                <h2>12. Suspension and Termination</h2>
+                <p>
+                    We reserve the right to suspend or terminate your access to the Service at any time, with or without notice, for any reason. Upon termination, your rights to use the Service will immediately cease.
+                </p>
+            </section>
+
+            <section>
+                <h2>13. Contact Information</h2>
+                <p>
+                    If you have any questions about these Terms of Service, please contact us at:
+                </p>
+                <div class="contact-info">
+                    <p>
+                        <strong>DWK</strong><br>
+                        Email: support@dwk.co.uk<br>
+                        Address: DWK Offices, 10 Castle Lane West, Bournemouth BH8 8AU, United Kingdom<br>
+                        Website developed by <a href="{{ url_for('about_vectura') }}" class="text-decoration-none">Vectura</a>
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <div class="legal-footer">
+            <a href="{{ url_for('login') }}" class="btn btn-outline-primary">Back to Login</a>
+        </div>
+    </div>
+</main>
+{% endblock %}

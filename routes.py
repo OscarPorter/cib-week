@@ -62,3 +62,55 @@ def register_routes(app):
         session.clear()
         flash('You have been logged out.', 'success')
         return redirect(url_for('login'))
+
+    @app.route('/forgot-password', methods=['GET', 'POST'])
+    def forgot_password():
+        """Handle password reset requests"""
+        if request.method == 'POST':
+            email = request.form.get('email', '').strip()
+            db = get_db()
+            
+            #Check if email exists in either customers or advisers table
+            customer = db.execute('SELECT * FROM customers WHERE email = ?', (email,)).fetchone()
+            adviser = db.execute('SELECT * FROM advisers WHERE email = ?', (email,)).fetchone()
+            
+           
+            if customer or adviser:
+                # TODO: In production, send a password reset email here
+                # For now, we'll just show a success message
+                flash(
+                    'If an account exists with that email, you will receive password reset instructions shortly. '
+                    'Please check your email and follow the instructions provided.',
+                    'success'
+                )
+            else:
+                #show success message for security reasons
+                flash(
+                    'If an account exists with that email, you will receive password reset instructions shortly. '
+                    'Please check your email and follow the instructions provided.',
+                    'info'
+                )
+            
+            return redirect(url_for('login'))
+        
+        return render_template('forgot_password.html')
+
+    @app.route('/about-vectura')
+    def about_vectura():
+        """Serve the Vectura team information page"""
+        return render_template('about_vectura.html')
+
+    @app.route('/terms')
+    def terms():
+        """Serve the Terms of Service page"""
+        return render_template('terms.html')
+
+    @app.route('/privacy')
+    def privacy():
+        """Serve the Privacy Policy page"""
+        return render_template('privacy.html')
+
+    @app.route('/contact')
+    def contact():
+        """Serve the Contact Us page"""
+        return render_template('contact.html')

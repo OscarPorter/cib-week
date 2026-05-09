@@ -1,44 +1,124 @@
 {% extends 'base.html' %}
-{% block title %}Login{% endblock %}
+{% block title %}Login - Financial Management{% endblock %}
 {% block body %}
 <main class="container main-content">
-    <div class="login-card bg-white p-4">
-        <div class="text-center mb-4">
-            <h2 class="mb-1">Welcome back</h2>
-            <p class="text-muted mb-0">Sign in to manage your finances.</p>
-        </div>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-custom alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <div class="login-wrapper">
+        <div class="login-card">
+            <!-- Logo/Branding Area -->
+            <div class="text-center mb-5">
+                <div class="login-header">
+                    <h1 class="login-title">DWK</h1>
+                    <p class="login-subtitle">Sign in to manage your finances securely</p>
+                </div>
+            </div>
+
+            <!-- Alert Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            <strong>{{ 'Notice' if category == 'info' else category.title() }}:</strong> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Login Form -->
+            <form method="post" class="login-form" novalidate>
+                <!-- User Type Selection -->
+                <div class="form-group mb-4">
+                    <label class="form-label fw-600">Account Type</label>
+                    <div class="user-type-selector">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="user_type" id="customerRadio" value="customer" checked>
+                            <label class="form-check-label" for="customerRadio">
+                                <span class="user-type-label">Customer</span>
+                                <span class="user-type-desc">Personal account</span>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="user_type" id="adviserRadio" value="adviser">
+                            <label class="form-check-label" for="adviserRadio">
+                                <span class="user-type-label">Adviser</span>
+                                <span class="user-type-desc">Professional account</span>
+                            </label>
+                        </div>
                     </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        <form method="post">
-            <div class="mb-3">
-                <label class="form-label">Login as</label>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="user_type" id="customerRadio" value="customer" checked>
-                    <label class="form-check-label" for="customerRadio">Customer</label>
                 </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" name="user_type" id="adviserRadio" value="adviser">
-                    <label class="form-check-label" for="adviserRadio">Adviser</label>
+
+                <!-- Email Input -->
+                <div class="form-group mb-3">
+                    <label for="email" class="form-label fw-600">Email Address</label>
+                    <input 
+                        id="email" 
+                        name="email" 
+                        type="email" 
+                        class="form-control form-control-lg" 
+                        placeholder="name@company.com" 
+                        required 
+                        autofocus
+                        aria-label="Email Address"
+                        autocomplete="email">
+                    <div class="form-text">We'll never share your email with anyone else.</div>
                 </div>
+
+                <!-- Password Input -->
+                <div class="form-group mb-2">
+                    <label for="password" class="form-label fw-600">Password</label>
+                    <input 
+                        id="password" 
+                        name="password" 
+                        type="password" 
+                        class="form-control form-control-lg" 
+                        placeholder="••••••••" 
+                        required
+                        aria-label="Password"
+                        autocomplete="current-password">
+                </div>
+
+                <!-- Forgot Password Link -->
+                <div class="mb-4 text-end">
+                    <a href="{{ url_for('forgot_password') }}" class="forgot-password-link">Forgot password?</a>
+                </div>
+
+                <!-- Sign In Button -->
+                <button type="submit" class="btn btn-primary btn-lg w-100 fw-600 mb-3">Sign In</button>
+
+                <!-- Terms/Security Note -->
+                <div class="security-note">
+                    <small>
+                        By signing in, you agree to our <a href="{{ url_for('terms') }}" class="text-decoration-none">Terms of Service</a> and acknowledge our <a href="{{ url_for('privacy') }}" class="text-decoration-none">Privacy Policy</a>.
+                    </small>
+                </div>
+            </form>
+
+            <!-- Support Footer -->
+            <div class="login-footer">
+                <small class="text-muted">
+                    Having trouble signing in? <a href="{{ url_for('contact') }}" class="text-decoration-none">Contact Support</a>
+                </small>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input name="email" type="email" class="form-control" placeholder="Enter email" required autofocus>
+        </div>
+
+        <!-- Security Information -->
+        <div class="login-info-box">
+            <div class="info-item">
+                <div class="info-icon">🔒</div>
+                <h4>Secure Login</h4>
+                <p>Your credentials are encrypted and protected</p>
             </div>
-            <div class="mb-4">
-                <label class="form-label">Password</label>
-                <input name="password" type="password" class="form-control" placeholder="Enter password" required>
+            <div class="info-item">
+                <div class="info-icon">🛡️</div>
+                <h4>Data Protection</h4>
+                <p>We comply with industry security standards</p>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Sign In</button>
-        </form>
+            <div class="info-item">
+                <div class="info-icon">📱</div>
+                <h4>Multi-Device</h4>
+                <p>Access securely from any device</p>
+            </div>
+        </div>
     </div>
 </main>
 {% endblock %}
