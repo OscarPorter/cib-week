@@ -16,7 +16,9 @@ def init_db():
                          name TEXT, 
                          email TEXT UNIQUE, 
                          password TEXT, 
-                         currency TEXT );
+                         currency TEXT,
+                         totp_secret TEXT,
+                         is_2fa_enabled BOOL DEFAULT 0 );
 
             CREATE TABLE IF NOT EXISTS advisers (
                          adviser_id INTEGER PRIMARY KEY, 
@@ -24,7 +26,9 @@ def init_db():
                          email TEXT UNIQUE, 
                          password TEXT, 
                          currency TEXT, 
-                         is_manager BOOL DEFAULT 0 );
+                         is_manager BOOL DEFAULT 0,
+                         totp_secret TEXT,
+                         is_2fa_enabled BOOL DEFAULT 0 );
 
             CREATE TABLE IF NOT EXISTS budgets (
                          budget_id INTEGER PRIMARY KEY,

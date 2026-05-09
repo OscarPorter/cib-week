@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Two-Factor Authentication{% endblock %}
+{% block body %}
+<main class="container main-content">
+    <div class="auth-wrapper mx-auto">
+        <div class="auth-card">
+            <div class="text-center mb-4">
+                <h1 class="h3">Two-Factor Authentication</h1>
+                <p class="text-muted">Enter the code from your authenticator app.</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            <strong>{{ 'Notice' if category == 'info' else category.title() }}:</strong> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="post" class="auth-form">
+                <div class="mb-3">
+                    <label for="code" class="form-label">Authentication Code</label>
+                    <input id="code" name="code" type="text" class="form-control form-control-lg" placeholder="123456" required autofocus autocomplete="one-time-code">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg w-100">Verify Code</button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <a href="{{ url_for('login') }}" class="text-decoration-none">Back to sign in</a>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

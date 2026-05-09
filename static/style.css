@@ -539,7 +539,7 @@ footer {
         height: 2.5rem;
         font-size: 0.95rem;
     }
-}
+
 
 @media (max-width: 480px) {
     .login-card {
