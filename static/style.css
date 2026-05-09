@@ -230,3 +230,519 @@ footer {
     text-align: center;
     font-size: 0.9rem;
 }
+
+/* Professional Login Styling */
+.login-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 180px);
+    padding: 2rem 1rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 480px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(37, 99, 235, 0.12);
+    box-shadow: 0 40px 90px rgba(15, 23, 42, 0.1), 
+                0 0 1px rgba(37, 99, 235, 0.2);
+    border-radius: 28px;
+    padding: 2.5rem;
+    backdrop-filter: blur(18px);
+    position: relative;
+    overflow: hidden;
+}
+
+.login-card::before {
+    content: "";
+    position: absolute;
+    top: -40%;
+    right: -10%;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.08), transparent);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.login-card::after {
+    content: "";
+    position: absolute;
+    bottom: -30%;
+    left: -5%;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, rgba(34, 197, 94, 0.06), transparent);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.login-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+.login-header {
+    margin-bottom: 1.5rem;
+}
+
+.login-title {
+    font-size: 1.875rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+}
+
+.login-subtitle {
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.login-form {
+    margin-top: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.form-control-lg {
+    height: 2.75rem;
+    font-size: 1rem;
+    border-radius: 12px;
+    border: 1.5px solid rgba(37, 99, 235, 0.15);
+    background: #fafbfc;
+    transition: all 0.3s ease;
+    padding: 0.75rem 1rem;
+}
+
+.form-control-lg:focus {
+    border-color: var(--primary);
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-text {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+}
+
+.form-check {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 12px;
+    border: 1.5px solid rgba(37, 99, 235, 0.1);
+    background: rgba(37, 99, 235, 0.03);
+    transition: all 0.2s ease;
+}
+
+.form-check:hover {
+    border-color: rgba(37, 99, 235, 0.25);
+    background: rgba(37, 99, 235, 0.06);
+}
+
+.form-check-input {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.75rem;
+    cursor: pointer;
+    border: 2px solid rgba(37, 99, 235, 0.4);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.form-check-input:checked {
+    background-color: var(--primary);
+    border-color: var(--primary);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-check-label {
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.user-type-label {
+    display: block;
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.95rem;
+}
+
+.user-type-desc {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.user-type-selector {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.forgot-password-link {
+    color: var(--primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.forgot-password-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary), #1d4ed8);
+    border: none;
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    height: 2.75rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.2);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 36px rgba(37, 99, 235, 0.28);
+    background: linear-gradient(135deg, #1d4ed8, #1939c9);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+}
+
+.security-note {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+    text-align: center;
+}
+
+.security-note a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.security-note a:hover {
+    text-decoration: underline;
+}
+
+.login-footer {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(37, 99, 235, 0.1);
+    text-align: center;
+}
+
+.login-footer a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.login-footer a:hover {
+    text-decoration: underline;
+}
+
+.back-link {
+    font-size: 0.9rem;
+}
+
+.back-link a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.back-link a:hover {
+    transform: translateX(-3px);
+}
+
+/* Login Info Box - Security Features */
+.login-info-box {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1.5rem;
+    margin-top: 3rem;
+    width: 100%;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.info-item {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(37, 99, 235, 0.08);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.info-item:hover {
+    border-color: rgba(37, 99, 235, 0.15);
+    background: rgba(255, 255, 255, 0.8);
+    transform: translateY(-2px);
+}
+
+    .login-card {
+        max-width: 100%;
+        padding: 1.75rem;
+    }
+
+    .login-title {
+        font-size: 1.5rem;
+    }
+
+    .login-subtitle {
+        font-size: 0.85rem;
+    }
+
+    .login-info-box {
+        grid-template-columns: 1fr;
+        margin-top: 2.5rem;
+    }
+
+    .form-control-lg,
+    .btn-primary {
+        height: 2.5rem;
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-card {
+        padding: 1.5rem;
+    }
+
+    .login-title {
+        font-size: 1.25rem;
+    }
+
+    .login-subtitle {
+        font-size: 0.8rem;
+    }
+
+    .form-group label {
+        font-size: 0.9rem;
+    }
+
+    .user-type-desc {
+        font-size: 0.75rem;
+    }
+}
+
+/* Legal Pages - Terms & Privacy Policy */
+.legal-page {
+    max-width: 900px;
+    margin: 3rem auto;
+    padding: 0 2rem;
+}
+
+.legal-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid rgba(37, 99, 235, 0.1);
+}
+
+.legal-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+}
+
+.last-updated {
+    font-size: 0.95rem;
+    color: var(--muted);
+    margin: 0;
+}
+
+.legal-content {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #0f172a;
+}
+
+.legal-content section {
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+}
+
+.legal-content section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    border-left: 4px solid var(--primary);
+    padding-left: 1rem;
+}
+
+.legal-content section h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #102a43;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.legal-content ul {
+    margin-left: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.legal-content li {
+    margin-bottom: 0.5rem;
+    padding-left: 0.5rem;
+}
+
+.legal-content strong {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.contact-info {
+    background: rgba(37, 99, 235, 0.05);
+    border: 1px solid rgba(37, 99, 235, 0.12);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.contact-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.contact-card {
+    padding: 1.25rem;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 16px;
+    border: 1px solid rgba(37, 99, 235, 0.08);
+}
+
+.contact-info p {
+    margin: 0;
+    line-height: 1.8;
+}
+
+.legal-footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 2px solid rgba(37, 99, 235, 0.1);
+}
+
+.legal-footer .btn {
+    display: inline-block;
+}
+
+.btn-outline-primary {
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    background: transparent;
+    font-weight: 600;
+    padding: 0.65rem 1.5rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+}
+
+/* Responsive Legal Pages */
+@media (max-width: 768px) {
+    .legal-page {
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .legal-header h1 {
+        font-size: 2rem;
+    }
+
+    .legal-content section h2 {
+        font-size: 1.3rem;
+    }
+
+    .legal-content section h3 {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .legal-page {
+        margin: 1.5rem auto;
+        padding: 0 1rem;
+    }
+
+    .legal-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .legal-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+    }
+
+    .legal-content section {
+        margin-bottom: 1.75rem;
+    }
+
+    .legal-content section h2 {
+        font-size: 1.1rem;
+        padding-left: 0.75rem;
+    }
+
+    .legal-content section h3 {
+        font-size: 0.95rem;
+    }
+
+    .contact-info {
+        padding: 1rem;
+    }
+
+    .last-updated {
+        font-size: 0.85rem;
+    }
+}
