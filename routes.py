@@ -8,13 +8,6 @@ import qrcode
 import base64
 import io
 
-try:
-    from PIL import Image  # noqa: F401
-    QR_IMAGE_FACTORY = None
-except ImportError:
-    from qrcode.image.svg import SvgPathImage
-    QR_IMAGE_FACTORY = SvgPathImage
-
 def no_cache(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -154,23 +147,15 @@ def register_routes(app):
         qr = qrcode.QRCode(box_size=8, border=2)
         qr.add_data(provisioning_uri)
         qr.make(fit=True)
+        img = qr.make_image(fill_color='black', back_color='white')
 
         buffer = io.BytesIO()
-        if QR_IMAGE_FACTORY is None:
-            img = qr.make_image(fill_color='black', back_color='white')
-            img.save(buffer, format='PNG')
-            qr_code_data = base64.b64encode(buffer.getvalue()).decode()
-            qr_code_type = 'png'
-        else:
-            img = qr.make_image(image_factory=QR_IMAGE_FACTORY)
-            img.save(buffer)
-            qr_code_data = base64.b64encode(buffer.getvalue()).decode()
-            qr_code_type = 'svg'
+        img.save(buffer, format='PNG')
+        qr_code_data = base64.b64encode(buffer.getvalue()).decode()
 
         return render_template(
             'setup_2fa.html',
             qr_code_data=qr_code_data,
-            qr_code_type=qr_code_type,
             secret=secret
         )
 
@@ -191,7 +176,6 @@ def register_routes(app):
             customer = db.execute('SELECT * FROM customers WHERE email = ?', (email,)).fetchone()
             adviser = db.execute('SELECT * FROM advisers WHERE email = ?', (email,)).fetchone()
             
-           
             if customer or adviser:
                 # TODO: In production, send a password reset email here
                 # For now, we'll just show a success message
@@ -226,6 +210,34 @@ def register_routes(app):
     def privacy():
         """Serve the Privacy Policy page"""
         return render_template('privacy.html')
+
+    @app.route('/settings', methods=['GET', 'POST'])
+    @login_required
+    @no_cache
+    def settings():
+        db = get_db()
+        user = get_user_by_role(db, session['role'], session['user_id'])
+
+        if not user:
+            session.clear()
+            return redirect(url_for('login'))
+
+        if request.method == 'POST':
+            action = request.form.get('action')
+            if action == 'disable_2fa':
+                code = request.form.get('code', '').strip()
+                if user['totp_secret'] and pyotp.TOTP(user['totp_secret']).verify(code, valid_window=1):
+                    if session['role'] == 'adviser':
+                        db.execute('UPDATE advisers SET totp_secret = NULL, is_2fa_enabled = 0 WHERE adviser_id = ?', (session['user_id'],))
+                    else:
+                        db.execute('UPDATE customers SET totp_secret = NULL, is_2fa_enabled = 0 WHERE customer_id = ?', (session['user_id'],))
+                    db.commit()
+                    flash('Two-factor authentication has been disabled.', 'success')
+                    return redirect(url_for('settings'))
+                else:
+                    flash('Invalid authentication code. Please try again.', 'danger')
+
+        return render_template('settings.html', user=user)
 
     @app.route('/contact')
     def contact():

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Settings - Financial Management{% endblock %}
+{% block body %}
+<main class="container main-content">
+    <div class="auth-wrapper mx-auto">
+        <div class="auth-card">
+            <div class="text-center mb-4">
+                <h1 class="h3">Account Settings</h1>
+                <p class="text-muted">Manage your account preferences and security settings.</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            <strong>{{ 'Notice' if category == 'info' else category.title() }}:</strong> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="mb-4">
+                <h5>Two-Factor Authentication</h5>
+                {% if user.is_2fa_enabled %}
+                    <p class="text-success">✓ Enabled</p>
+                    <p class="small text-muted">Your account is protected with two-factor authentication.</p>
+                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#disable2faModal">Disable 2FA</button>
+                {% else %}
+                    <p class="text-warning">✗ Not Enabled</p>
+                    <p class="small text-muted">Add an extra layer of security to your account.</p>
+                    <a href="{{ url_for('setup_2fa') }}" class="btn btn-outline-primary">Enable 2FA</a>
+                {% endif %}
+            </div>
+
+            <!-- Modal for disabling 2FA -->
+            <div class="modal fade" id="disable2faModal" tabindex="-1" aria-labelledby="disable2faModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="disable2faModalLabel">Disable Two-Factor Authentication</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form method="post">
+                            <div class="modal-body">
+                                <p>Enter your current authentication code to confirm disabling 2FA:</p>
+                                <input type="hidden" name="action" value="disable_2fa">
+                                <div class="mb-3">
+                                    <label for="code" class="form-label">Authentication Code</label>
+                                    <input id="code" name="code" type="text" class="form-control" placeholder="123456" required autocomplete="one-time-code">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-danger">Disable 2FA</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="{{ url_for('index') }}" class="text-decoration-none">Return to dashboard</a>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
