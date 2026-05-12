@@ -11,21 +11,23 @@ def init_db():
     with get_db() as db:
         db.executescript('''
             CREATE TABLE IF NOT EXISTS customers (
-                         customer_id INTEGER PRIMARY KEY, 
-                         name TEXT, 
-                         email TEXT UNIQUE, 
-                         password TEXT, 
+                         customer_id INTEGER PRIMARY KEY,
+                         name TEXT,
+                         email TEXT UNIQUE,
+                         password TEXT,
                          currency TEXT,
+                         description TEXT,
                          totp_secret TEXT,
                          is_2fa_enabled BOOL DEFAULT 0 );
 
             CREATE TABLE IF NOT EXISTS advisers (
-                         adviser_id INTEGER PRIMARY KEY, 
-                         name TEXT, 
-                         email TEXT UNIQUE, 
-                         password TEXT, 
-                         currency TEXT, 
+                         adviser_id INTEGER PRIMARY KEY,
+                         name TEXT,
+                         email TEXT UNIQUE,
+                         password TEXT,
+                         currency TEXT,
                          is_manager BOOL DEFAULT 0,
+                         description TEXT,
                          totp_secret TEXT,
                          is_2fa_enabled BOOL DEFAULT 0 );
 
@@ -51,6 +53,7 @@ def init_db():
                          type TEXT,
                          balance REAL,
                          currency TEXT,
+                         is_private BOOL DEFAULT 0,
                          FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
 
             CREATE TABLE IF NOT EXISTS transactions (
@@ -95,6 +98,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS user_assignments (
                          adviser_id INTEGER,
                          customer_id INTEGER,
+                         status TEXT DEFAULT 'pending',
                          FOREIGN KEY (adviser_id) REFERENCES advisers(adviser_id),
                          FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
                          PRIMARY KEY (adviser_id, customer_id) );
@@ -107,7 +111,7 @@ def init_db():
                          PRIMARY KEY (team_id, adviser_id) );
             
             -- Insert default categories if not exist
-            INSERT OR IGNORE INTO categories (name, colour, description) VALUES 
+            INSERT OR IGNORE INTO categories (name, colour, description) VALUES
                 ('Food', '#FF6B6B', 'Food and dining expenses'),
                 ('Transport', '#4ECDC4', 'Transportation costs'),
                 ('Entertainment', '#45B7D1', 'Entertainment and leisure'),
@@ -117,3 +121,20 @@ def init_db():
                 ('Health', '#BB8FCE', 'Medical and health expenses'),
                 ('Other', '#AED6F1', 'Miscellaneous');
         ''')
+
+
+def migrate_db():
+    """Safely add columns introduced after initial schema creation."""
+    migrations = [
+        "ALTER TABLE advisers ADD COLUMN description TEXT",
+        "ALTER TABLE customers ADD COLUMN description TEXT",
+        "ALTER TABLE accounts ADD COLUMN is_private BOOL DEFAULT 0",
+        "ALTER TABLE user_assignments ADD COLUMN status TEXT DEFAULT 'pending'",
+    ]
+    with get_db() as db:
+        for sql in migrations:
+            try:
+                db.execute(sql)
+                db.commit()
+            except sqlite3.OperationalError:
+                pass

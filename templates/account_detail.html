@@ -26,7 +26,7 @@
                         <p class="text-muted mb-0">Type: {{ account['type'] }} · Balance: £{{ '%.2f'|format(account['balance'] or 0) }}</p>
                     </div>
                     <div>
-                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to accounts</a>
+                        <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">Back to accounts</a>
                     </div>
                 </div>
             </div>
@@ -66,6 +66,7 @@
             </div>
         </div>
 
+        {% if not is_adviser_view %}
         <div class="col-lg-5">
             <div class="card card-surface p-4">
                 <h2 class="h5 mb-3">Add Transaction</h2>
@@ -105,13 +106,16 @@
                 </form>
             </div>
         </div>
+        {% endif %}
 
-        <div class="col-lg-7">
+        <div class="{% if is_adviser_view %}col-12{% else %}col-lg-7{% endif %}">
             <div class="card card-surface p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
                         <h2 class="h5 mb-1">Recent Transactions</h2>
-                        <p class="text-muted mb-0">Review and manage transactions for this account.</p>
+                        <p class="text-muted mb-0">
+                            {% if is_adviser_view %}Transaction history for this account.{% else %}Review and manage transactions for this account.{% endif %}
+                        </p>
                     </div>
                 </div>
                 {% if transactions and transactions|length > 0 %}
@@ -124,7 +128,7 @@
                                     <th>Category</th>
                                     <th>Description</th>
                                     <th class="text-end">Amount</th>
-                                    <th class="text-end">Action</th>
+                                    {% if not is_adviser_view %}<th class="text-end">Action</th>{% endif %}
                                 </tr>
                             </thead>
                             <tbody>
@@ -146,18 +150,20 @@
                                         <td class="text-end {% if (transaction['amount'] or 0) < 0 %}text-danger{% else %}text-success{% endif %}">
                                             £{{ '%.2f'|format(transaction['amount'] or 0) }}
                                         </td>
+                                        {% if not is_adviser_view %}
                                         <td class="text-end">
                                             <form method="post" action="{{ url_for('delete_transaction', account_id=account['account_id'], transaction_id=transaction['transaction_id']) }}">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                                             </form>
                                         </td>
+                                        {% endif %}
                                     </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 {% else %}
-                    <div class="text-muted">No transactions yet. Add one to start tracking this account.</div>
+                    <div class="text-muted">No transactions yet.</div>
                 {% endif %}
             </div>
         </div>
@@ -173,17 +179,19 @@
         el.style.cssText = 'display:inline-block;width:10px;height:10px;border-radius:50%;background:' + c + ';flex-shrink:0;';
     });
 
-    // Category colour dot in dropdown
+    // Category colour dot in dropdown (only present in customer view)
     var categorySelect = document.getElementById('category');
-    var colourDot = document.getElementById('category-colour-dot');
-    function updateDot() {
-        var selected = categorySelect.options[categorySelect.selectedIndex];
-        var colour = selected ? (selected.getAttribute('data-colour') || '#dee2e6') : '#dee2e6';
-        colourDot.setAttribute('data-colour', colour);
-        colourDot.style.background = colour;
+    if (categorySelect) {
+        var colourDot = document.getElementById('category-colour-dot');
+        function updateDot() {
+            var selected = categorySelect.options[categorySelect.selectedIndex];
+            var colour = selected ? (selected.getAttribute('data-colour') || '#dee2e6') : '#dee2e6';
+            colourDot.setAttribute('data-colour', colour);
+            colourDot.style.background = colour;
+        }
+        categorySelect.addEventListener('change', updateDot);
+        updateDot();
     }
-    categorySelect.addEventListener('change', updateDot);
-    updateDot();
 
     // Build a custom HTML legend showing colour, name, total, and percentage
     function buildLegend(containerId, labels, amounts, colours) {

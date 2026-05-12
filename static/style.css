@@ -563,6 +563,59 @@ footer {
     }
 }
 
+/* Adviser Cards */
+.adviser-pfp {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(37, 99, 235, 0.12);
+}
+
+.adviser-badge-active {
+    background: linear-gradient(135deg, #14b8a6, #0d9488);
+    color: #fff;
+    font-size: 0.82rem;
+    border-radius: 999px;
+}
+
+.adviser-badge-pending {
+    background: rgba(234, 179, 8, 0.15);
+    color: #92400e;
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    font-size: 0.82rem;
+    border-radius: 999px;
+}
+
+/* Adviser dashboard client rows */
+.adviser-client-row {
+    padding: 0.85rem 1rem;
+    border-radius: 16px;
+    background: rgba(37, 99, 235, 0.03);
+    border: 1px solid rgba(37, 99, 235, 0.08);
+    transition: background 0.2s;
+}
+
+.adviser-client-row:hover {
+    background: rgba(37, 99, 235, 0.07);
+}
+
+.client-pfp {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(37, 99, 235, 0.12);
+}
+
+.client-pfp-lg {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(37, 99, 235, 0.12);
+}
+
 /* Legal Pages - Terms & Privacy Policy */
 .legal-page {
     max-width: 900px;
@@ -673,7 +726,7 @@ footer {
     display: inline-block;
 }
 
-.btn-outline-primary {
+.legal-footer .btn-outline-primary {
     color: var(--primary);
     border: 2px solid var(--primary);
     background: transparent;
@@ -683,7 +736,7 @@ footer {
     transition: all 0.3s ease;
 }
 
-.btn-outline-primary:hover {
+.legal-footer .btn-outline-primary:hover {
     background: var(--primary);
     color: white;
     transform: translateY(-2px);

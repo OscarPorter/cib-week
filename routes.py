@@ -54,7 +54,15 @@ def register_routes(app):
                 'SELECT * FROM accounts WHERE customer_id = ? ORDER BY account_id DESC',
                 (session['user_id'],)
             ).fetchall()
-            return render_template('index.html', accounts=accounts)
+            current_adviser = db.execute('''
+                SELECT a.adviser_id, a.name, ua.status
+                FROM user_assignments ua
+                JOIN advisers a ON ua.adviser_id = a.adviser_id
+                WHERE ua.customer_id = ?
+            ''', (session['user_id'],)).fetchone()
+            return render_template('index.html', accounts=accounts, current_adviser=current_adviser)
+        if session.get('role') == 'adviser' and not session.get('is_manager'):
+            return redirect(url_for('adviser_dashboard'))
         return render_template('index.html')
 
     @app.route('/accounts/create', methods=['POST'])
@@ -109,13 +117,33 @@ def register_routes(app):
     @login_required
     @no_cache
     def account_detail(account_id):
-        if session.get('role') != 'customer':
-            return redirect(url_for('index'))
-
         db = get_db()
-        account = get_customer_account(db, account_id, session['user_id'])
-        if not account:
-            flash('Account not found.', 'warning')
+        is_adviser_view = False
+        back_url = url_for('index')
+
+        if session.get('role') == 'customer':
+            account = get_customer_account(db, account_id, session['user_id'])
+            if not account:
+                flash('Account not found.', 'warning')
+                return redirect(url_for('index'))
+        elif session.get('role') == 'adviser' and not session.get('is_manager'):
+            account = db.execute('SELECT * FROM accounts WHERE account_id = ?', (account_id,)).fetchone()
+            if not account:
+                flash('Account not found.', 'warning')
+                return redirect(url_for('adviser_dashboard'))
+            assignment = db.execute(
+                "SELECT 1 FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'accepted'",
+                (session['user_id'], account['customer_id'])
+            ).fetchone()
+            if not assignment:
+                flash('You do not have access to this account.', 'danger')
+                return redirect(url_for('adviser_dashboard'))
+            if account['is_private']:
+                flash('This account is set to private.', 'warning')
+                return redirect(url_for('view_client_accounts', customer_id=account['customer_id']))
+            is_adviser_view = True
+            back_url = url_for('view_client_accounts', customer_id=account['customer_id'])
+        else:
             return redirect(url_for('index'))
 
         categories = db.execute('SELECT * FROM categories ORDER BY name').fetchall()
@@ -206,7 +234,9 @@ def register_routes(app):
             transactions=transactions,
             categories=categories,
             chart_data=chart_data,
-            today=datetime.utcnow().strftime('%Y-%m-%d')
+            today=datetime.utcnow().strftime('%Y-%m-%d'),
+            is_adviser_view=is_adviser_view,
+            back_url=back_url
         )
 
     @app.route('/accounts/<int:account_id>/transactions/add', methods=['POST'])
@@ -253,6 +283,170 @@ def register_routes(app):
         db.commit()
         flash('Transaction added successfully.', 'success')
         return redirect(url_for('account_detail', account_id=account_id))
+
+    @app.route('/accounts/<int:account_id>/toggle-privacy', methods=['POST'])
+    @login_required
+    @no_cache
+    def toggle_account_privacy(account_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+        db.execute(
+            'UPDATE accounts SET is_private = NOT is_private WHERE account_id = ?',
+            (account_id,)
+        )
+        db.commit()
+        return redirect(url_for('index'))
+
+    @app.route('/advisers')
+    @login_required
+    @no_cache
+    def browse_advisers():
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+        db = get_db()
+        advisers = db.execute('SELECT * FROM advisers WHERE is_manager = 0 ORDER BY name').fetchall()
+        assignments = db.execute(
+            'SELECT adviser_id, status FROM user_assignments WHERE customer_id = ?',
+            (session['user_id'],)
+        ).fetchall()
+        assignment_map = {a['adviser_id']: a['status'] for a in assignments}
+        has_assignment = len(assignment_map) > 0
+        return render_template('advisers.html', advisers=advisers, assignment_map=assignment_map, has_assignment=has_assignment)
+
+    @app.route('/advisers/<int:adviser_id>/request', methods=['POST'])
+    @login_required
+    @no_cache
+    def request_adviser(adviser_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+        db = get_db()
+        adviser = db.execute('SELECT * FROM advisers WHERE adviser_id = ? AND is_manager = 0', (adviser_id,)).fetchone()
+        if not adviser:
+            flash('Adviser not found.', 'warning')
+            return redirect(url_for('browse_advisers'))
+        any_assignment = db.execute(
+            'SELECT status FROM user_assignments WHERE customer_id = ?',
+            (session['user_id'],)
+        ).fetchone()
+        if any_assignment:
+            flash('You already have an adviser. Remove them before requesting a new one.', 'warning')
+            return redirect(url_for('browse_advisers'))
+        db.execute(
+            "INSERT INTO user_assignments (adviser_id, customer_id, status) VALUES (?, ?, 'pending')",
+            (adviser_id, session['user_id'])
+        )
+        db.commit()
+        flash(f'Request sent to {adviser["name"]}.', 'success')
+        return redirect(url_for('browse_advisers'))
+
+    @app.route('/advisers/<int:adviser_id>/cancel-request', methods=['POST'])
+    @login_required
+    @no_cache
+    def cancel_adviser_request(adviser_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+        db = get_db()
+        db.execute(
+            "DELETE FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'pending'",
+            (adviser_id, session['user_id'])
+        )
+        db.commit()
+        flash('Request cancelled.', 'info')
+        return redirect(url_for('browse_advisers'))
+
+    @app.route('/advisers/<int:adviser_id>/remove', methods=['POST'])
+    @login_required
+    @no_cache
+    def remove_adviser(adviser_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+        db = get_db()
+        db.execute(
+            "DELETE FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'accepted'",
+            (adviser_id, session['user_id'])
+        )
+        db.commit()
+        flash('Adviser removed from your account.', 'info')
+        return redirect(url_for('index'))
+
+    @app.route('/adviser/dashboard')
+    @login_required
+    @no_cache
+    def adviser_dashboard():
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        pending_requests = db.execute('''
+            SELECT c.customer_id, c.name, c.email, c.description
+            FROM user_assignments ua
+            JOIN customers c ON ua.customer_id = c.customer_id
+            WHERE ua.adviser_id = ? AND ua.status = 'pending'
+            ORDER BY c.name
+        ''', (session['user_id'],)).fetchall()
+        clients = db.execute('''
+            SELECT c.customer_id, c.name, c.email, c.description
+            FROM user_assignments ua
+            JOIN customers c ON ua.customer_id = c.customer_id
+            WHERE ua.adviser_id = ? AND ua.status = 'accepted'
+            ORDER BY c.name
+        ''', (session['user_id'],)).fetchall()
+        return render_template('adviser_dashboard.html', pending_requests=pending_requests, clients=clients)
+
+    @app.route('/adviser/requests/<int:customer_id>/accept', methods=['POST'])
+    @login_required
+    @no_cache
+    def accept_request(customer_id):
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        db.execute(
+            "UPDATE user_assignments SET status = 'accepted' WHERE adviser_id = ? AND customer_id = ? AND status = 'pending'",
+            (session['user_id'], customer_id)
+        )
+        db.commit()
+        flash('Client request accepted.', 'success')
+        return redirect(url_for('adviser_dashboard'))
+
+    @app.route('/adviser/requests/<int:customer_id>/decline', methods=['POST'])
+    @login_required
+    @no_cache
+    def decline_request(customer_id):
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        db.execute(
+            "DELETE FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'pending'",
+            (session['user_id'], customer_id)
+        )
+        db.commit()
+        flash('Request declined.', 'info')
+        return redirect(url_for('adviser_dashboard'))
+
+    @app.route('/adviser/clients/<int:customer_id>')
+    @login_required
+    @no_cache
+    def view_client_accounts(customer_id):
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        assignment = db.execute(
+            "SELECT * FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'accepted'",
+            (session['user_id'], customer_id)
+        ).fetchone()
+        if not assignment:
+            flash('You do not have access to this client.', 'danger')
+            return redirect(url_for('adviser_dashboard'))
+        customer = db.execute('SELECT * FROM customers WHERE customer_id = ?', (customer_id,)).fetchone()
+        accounts = db.execute(
+            'SELECT * FROM accounts WHERE customer_id = ? AND is_private = 0 ORDER BY account_id DESC',
+            (customer_id,)
+        ).fetchall()
+        return render_template('client_accounts.html', customer=customer, accounts=accounts)
 
     @app.route('/accounts/<int:account_id>/transactions/<int:transaction_id>/delete', methods=['POST'])
     @login_required

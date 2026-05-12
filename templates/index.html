@@ -30,6 +30,32 @@
                 </div>
             </div>
 
+            {% if current_adviser %}
+            <div class="col-12">
+                <div class="card card-surface p-3 d-flex flex-row align-items-center gap-3">
+                    <img src="{{ url_for('static', filename='blank_pfp.jpg') }}" alt="Adviser" class="client-pfp flex-shrink-0">
+                    <div class="flex-grow-1 min-w-0">
+                        {% if current_adviser['status'] == 'accepted' %}
+                            <span class="text-muted small">Your adviser</span>
+                            <div class="fw-semibold">{{ current_adviser['name'] }}</div>
+                        {% else %}
+                            <span class="text-muted small">Pending request</span>
+                            <div class="fw-semibold">{{ current_adviser['name'] }}</div>
+                        {% endif %}
+                    </div>
+                    {% if current_adviser['status'] == 'accepted' %}
+                        <form method="post" action="{{ url_for('remove_adviser', adviser_id=current_adviser['adviser_id']) }}" class="flex-shrink-0">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Remove Adviser</button>
+                        </form>
+                    {% else %}
+                        <form method="post" action="{{ url_for('cancel_adviser_request', adviser_id=current_adviser['adviser_id']) }}" class="flex-shrink-0">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Cancel Request</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
             <div class="col-lg-4 col-xl-3">
                 <div class="card card-surface p-4" id="create-account">
                     <h2 class="h6 mb-3">Create Account</h2>
@@ -74,11 +100,21 @@
                                 <tbody>
                                     {% for account in accounts %}
                                         <tr>
-                                            <td>{{ account['name'] }}</td>
+                                            <td>
+                                                {{ account['name'] }}
+                                                {% if account['is_private'] %}
+                                                    <span class="badge bg-secondary ms-1" title="Hidden from advisers">Private</span>
+                                                {% endif %}
+                                            </td>
                                             <td>{{ account['type'] }}</td>
                                             <td>£{{ '%.2f'|format(account['balance'] or 0) }}</td>
                                             <td class="text-end">
-                                                <a href="{{ url_for('account_detail', account_id=account['account_id']) }}" class="btn btn-sm btn-outline-primary me-2">Open</a>
+                                                <a href="{{ url_for('account_detail', account_id=account['account_id']) }}" class="btn btn-sm btn-outline-primary me-1">Open</a>
+                                                <form method="post" action="{{ url_for('toggle_account_privacy', account_id=account['account_id']) }}" class="d-inline me-1">
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="{{ 'Make public' if account['is_private'] else 'Make private' }}">
+                                                        {{ '🔓' if account['is_private'] else '🔒' }}
+                                                    </button>
+                                                </form>
                                                 <form method="post" action="{{ url_for('delete_account', account_id=account['account_id']) }}" class="d-inline">
                                                     <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
                                                 </form>
