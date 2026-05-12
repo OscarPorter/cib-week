@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, session, flash, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 from database import get_db
 from functools import wraps
 import pyotp
@@ -61,7 +61,9 @@ def register_routes(app):
                 WHERE ua.customer_id = ?
             ''', (session['user_id'],)).fetchone()
             return render_template('index.html', accounts=accounts, current_adviser=current_adviser)
-        if session.get('role') == 'adviser' and not session.get('is_manager'):
+        if session.get('role') == 'adviser' and session.get('is_manager'):
+            return redirect(url_for('manager_dashboard'))
+        if session.get('role') == 'adviser':
             return redirect(url_for('adviser_dashboard'))
         return render_template('index.html')
 
@@ -395,7 +397,86 @@ def register_routes(app):
             WHERE ua.adviser_id = ? AND ua.status = 'accepted'
             ORDER BY c.name
         ''', (session['user_id'],)).fetchall()
-        return render_template('adviser_dashboard.html', pending_requests=pending_requests, clients=clients)
+
+        news = [
+            {
+                'title': 'Global markets rally after dovish guidance',
+                'source': 'Financial Times',
+                'url': 'https://www.ft.com',
+                'summary': 'Investors reacted positively to central bank signals that suggest lower rate risk ahead this quarter.'
+            },
+            {
+                'title': 'Tech earnings beat expectations',
+                'source': 'Reuters',
+                'url': 'https://www.reuters.com',
+                'summary': 'Technology stocks saw gains as earnings reports beat analyst forecasts, lifting broader market sentiment.'
+            },
+            {
+                'title': 'Oil prices ease amid weak demand outlook',
+                'source': 'Bloomberg',
+                'url': 'https://www.bloomberg.com',
+                'summary': 'Energy markets remain cautious as demand forecasts for the summer season were revised lower.'
+            }
+        ]
+
+        today = datetime.utcnow().date()
+        recent_labels = []
+        recent_values = []
+        current_value = 4300.0
+        date_cursor = today
+        while len(recent_labels) < 5:
+            if date_cursor.weekday() < 5:
+                recent_labels.append(date_cursor.strftime('%b %d'))
+                recent_values.append(round(current_value, 2))
+                current_value *= 1 + (0.0018 if len(recent_values) % 2 == 0 else 0.0011)
+            date_cursor -= timedelta(days=1)
+        recent_labels.reverse()
+        recent_values.reverse()
+
+        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        histories = []
+        base_value = 3800.0
+        for month_index in range(today.month):
+            growth_rate = 0.017 + month_index * 0.001
+            histories.append(round(base_value * (1 + growth_rate * month_index), 2))
+
+        historical_trend = {
+            'labels': month_names[: today.month],
+            'values': histories,
+            'description': 'Year-to-date index levels for the current fiscal year.'
+        }
+
+        recent_trend = {
+            'labels': recent_labels,
+            'values': recent_values,
+            'description': 'Recent 5 trading-day market movement for a representative benchmark index.'
+        }
+
+        return render_template(
+            'adviser_dashboard.html',
+            pending_requests=pending_requests,
+            clients=clients,
+            news=news,
+            recent_trend=json.dumps(recent_trend),
+            historical_trend=json.dumps(historical_trend)
+        )
+
+    @app.route('/manager/dashboard')
+    @login_required
+    @no_cache
+    def manager_dashboard():
+        if session.get('role') != 'adviser' or not session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        advisers = db.execute('''
+            SELECT a.adviser_id, a.name, a.email, COUNT(ua.customer_id) AS customer_count
+            FROM advisers a
+            LEFT JOIN user_assignments ua ON a.adviser_id = ua.adviser_id AND ua.status = 'accepted'
+            WHERE a.is_manager = 0
+            GROUP BY a.adviser_id
+            ORDER BY customer_count DESC, a.name
+        ''').fetchall()
+        return render_template('manager_dashboard.html', advisers=advisers)
 
     @app.route('/adviser/requests/<int:customer_id>/accept', methods=['POST'])
     @login_required
@@ -506,7 +587,7 @@ def register_routes(app):
 
                 session.update(pending_data)
                 if role == 'adviser' and pending_data['is_manager']:
-                    flash('Welcome manager. Your adviser account has is_manager access.', 'success')
+                    flash('Welcome, you are signed into a manager account.', 'success')
                 return redirect(url_for('index'))
 
             flash('Invalid email or password. Please try again.', 'danger')

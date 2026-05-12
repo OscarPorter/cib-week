@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Manager Dashboard - DWK Finance{% endblock %}
+
+{% block body %}
+<main class="container main-content">
+    <div class="row gy-4">
+        <div class="col-12">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            <strong>{{ 'Notice' if category == 'info' else category.title() }}:</strong> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <h1 class="page-heading mb-2">Manager Dashboard</h1>
+                        <p class="text-muted mb-0">View your financial advisors and see how many customers each is actively supporting.</p>
+                    </div>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">Back to home</a>
+                </div>
+
+                {% if advisers and advisers|length > 0 %}
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Adviser</th>
+                                    <th>Email</th>
+                                    <th class="text-end">Active Customers</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for adviser in advisers %}
+                                    <tr>
+                                        <td class="fw-semibold">{{ adviser['name'] }}</td>
+                                        <td>{{ adviser['email'] }}</td>
+                                        <td class="text-end">{{ adviser['customer_count'] or 0 }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <p class="mb-0">No advisers found yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

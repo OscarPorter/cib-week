@@ -47,6 +47,12 @@
                             <span class="badge bg-secondary ms-1">{{ clients|length }}</span>
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="markets-tab" data-bs-toggle="pill"
+                                data-bs-target="#markets-panel" type="button" role="tab">
+                            Markets
+                        </button>
+                    </li>
                 </ul>
 
                 <div class="tab-content" id="adviserTabContent">
@@ -109,9 +115,133 @@
                             </div>
                         {% endif %}
                     </div>
+
+                    <div class="tab-pane fade" id="markets-panel" role="tabpanel">
+                        <div class="row gy-4">
+                            <div class="col-12">
+                                <div class="card card-surface p-4">
+                                    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                                        <div>
+                                            <h2 class="h5 mb-1">Financial News</h2>
+                                            <p class="text-muted mb-0">Stay current with the latest market-moving headlines.</p>
+                                        </div>
+                                    </div>
+                                    {% if news %}
+                                        <div class="list-group list-group-flush">
+                                            {% for item in news %}
+                                                <div class="list-group-item px-0 py-3">
+                                                    <div class="d-flex justify-content-between align-items-start gap-3">
+                                                        <div>
+                                                            <a href="{{ item.url }}" target="_blank" class="fw-semibold text-decoration-none">{{ item.title }}</a>
+                                                            <div class="text-muted small">{{ item.source }}</div>
+                                                            <p class="mt-2 mb-0 text-muted">{{ item.summary }}</p>
+                                                        </div>
+                                                        <span class="badge bg-primary-subtle text-primary rounded-pill align-self-start">News</span>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted mb-0">No news available right now.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-lg-6">
+                                <div class="card card-surface p-4">
+                                    <h2 class="h6 mb-2">Recent Market Trend</h2>
+                                    <p class="text-muted mb-3 small">{{ recent_trend.description }}</p>
+                                    <div class="chart-card" style="min-height: 320px;">
+                                        <canvas id="recentMarketChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card card-surface p-4">
+                                    <h2 class="h6 mb-2">Historical Market Trend</h2>
+                                    <p class="text-muted mb-3 small">{{ historical_trend.description }}</p>
+                                    <div class="chart-card" style="min-height: 320px;">
+                                        <canvas id="historicalMarketChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    const recentData = JSON.parse('{{ recent_trend | safe }}');
+    const historicalData = JSON.parse('{{ historical_trend | safe }}');
+
+    const recentCtx = document.getElementById('recentMarketChart');
+    if (recentCtx) {
+        new Chart(recentCtx, {
+            type: 'line',
+            data: {
+                labels: recentData.labels,
+                datasets: [{
+                    label: 'Recent Index',
+                    data: recentData.values,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#1d4ed8'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#475569' } },
+                    y: { grid: { color: 'rgba(15, 23, 42, 0.08)' }, ticks: { color: '#475569' } }
+                }
+            }
+        });
+    }
+
+    const historicalCtx = document.getElementById('historicalMarketChart');
+    if (historicalCtx) {
+        new Chart(historicalCtx, {
+            type: 'line',
+            data: {
+                labels: historicalData.labels,
+                datasets: [{
+                    label: '12-Month Trend',
+                    data: historicalData.values,
+                    borderColor: '#14b8a6',
+                    backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#0d9488'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#475569' } },
+                    y: { grid: { color: 'rgba(15, 23, 42, 0.08)' }, ticks: { color: '#475569' } }
+                }
+            }
+        });
+    }
+</script>
 {% endblock %}
