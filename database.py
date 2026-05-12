@@ -34,17 +34,15 @@ def init_db():
                          customer_id INTEGER,
                          maximum_amount REAL,
                          start_date DATETIME,
-                         end_date DATETIME,
-                         FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
+                         end_date DATETIME );
 
             CREATE TABLE IF NOT EXISTS goals (
                          goal_id INTEGER PRIMARY KEY,
-                         customer_id INTEGER,
                          account_id INTEGER,
                          name TEXT,
                          target_amount REAL,
                          deadline DATETIME,
-                         FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
+                         FOREIGN KEY (account_id) REFERENCES accounts(account_id) );
             
             CREATE TABLE IF NOT EXISTS accounts (
                          account_id INTEGER PRIMARY KEY,
@@ -58,17 +56,18 @@ def init_db():
             CREATE TABLE IF NOT EXISTS transactions (
                          transaction_id INTEGER PRIMARY KEY,
                          account_id INTEGER,
-                         category TEXT,
+                         category_id INTEGER,
                          name TEXT,
                          description TEXT,
                          amount REAL,
                          transaction_date DATETIME,
-                         FOREIGN KEY (account_id) REFERENCES accounts(account_id) );
+                         FOREIGN KEY (account_id) REFERENCES accounts(account_id),
+                         FOREIGN KEY (category_id) REFERENCES categories(category_id) );
 
             CREATE TABLE IF NOT EXISTS recurring_transactions (
                          recurring_id INTEGER PRIMARY KEY,
                          account_id INTEGER,
-                         category TEXT,
+                         category_id INTEGER,
                          name TEXT,
                          description TEXT,
                          amount REAL,
@@ -77,7 +76,8 @@ def init_db():
                          frequency INTEGER,
                          frequency_type TEXT,
                          is_active BOOL DEFAULT 1,
-                         FOREIGN KEY (account_id) REFERENCES accounts(account_id) );
+                         FOREIGN KEY (account_id) REFERENCES accounts(account_id),
+                         FOREIGN KEY (category_id) REFERENCES categories(category_id) );
             
             CREATE TABLE IF NOT EXISTS teams (
                          team_id INTEGER PRIMARY KEY,
@@ -85,6 +85,12 @@ def init_db():
                          name TEXT,
                          description TEXT,
                          FOREIGN KEY (manager_id) REFERENCES advisers(adviser_id) );
+
+            CREATE TABLE IF NOT EXISTS categories (
+                         category_id INTEGER PRIMARY KEY,
+                         name TEXT UNIQUE,
+                         colour TEXT,
+                         description TEXT );
             
             CREATE TABLE IF NOT EXISTS user_assignments (
                          adviser_id INTEGER,
@@ -99,4 +105,15 @@ def init_db():
                          FOREIGN KEY (team_id) REFERENCES teams(team_id),
                          FOREIGN KEY (adviser_id) REFERENCES advisers(adviser_id),
                          PRIMARY KEY (team_id, adviser_id) );
+            
+            -- Insert default categories if not exist
+            INSERT OR IGNORE INTO categories (name, colour, description) VALUES 
+                ('Food', '#FF6B6B', 'Food and dining expenses'),
+                ('Transport', '#4ECDC4', 'Transportation costs'),
+                ('Entertainment', '#45B7D1', 'Entertainment and leisure'),
+                ('Bills', '#FFA07A', 'Utility bills and subscriptions'),
+                ('Salary', '#98D8C8', 'Income from salary'),
+                ('Shopping', '#F7DC6F', 'General shopping'),
+                ('Health', '#BB8FCE', 'Medical and health expenses'),
+                ('Other', '#AED6F1', 'Miscellaneous');
         ''')
