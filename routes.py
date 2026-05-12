@@ -34,13 +34,166 @@ def get_user_by_role(db, role, user_id):
     return db.execute('SELECT * FROM customers WHERE customer_id = ?', (user_id,)).fetchone()
 
 
+def get_customer_account(db, account_id, customer_id):
+    return db.execute(
+        'SELECT * FROM accounts WHERE account_id = ? AND customer_id = ?', 
+        (account_id, customer_id)
+    ).fetchone()
+
+
 def register_routes(app):
     
     @app.route('/')
     @no_cache
     def index():
         if 'user_id' not in session: return redirect(url_for('login'))
+        db = get_db()
+        if session.get('role') == 'customer':
+            accounts = db.execute(
+                'SELECT * FROM accounts WHERE customer_id = ? ORDER BY account_id DESC',
+                (session['user_id'],)
+            ).fetchall()
+            return render_template('index.html', accounts=accounts)
         return render_template('index.html')
+
+    @app.route('/accounts/create', methods=['POST'])
+    @login_required
+    @no_cache
+    def create_account():
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        name = request.form.get('account_name', '').strip()
+        acct_type = request.form.get('account_type', 'Checking').strip()
+        balance_value = request.form.get('opening_balance', '0').strip() or '0'
+
+        try:
+            balance = float(balance_value)
+        except ValueError:
+            balance = 0.0
+
+        if not name:
+            flash('Please provide a valid account name.', 'warning')
+            return redirect(url_for('index'))
+
+        db = get_db()
+        db.execute(
+            'INSERT INTO accounts (customer_id, name, type, balance, currency) VALUES (?, ?, ?, ?, ?)',
+            (session['user_id'], name, acct_type, balance, 'GBP')
+        )
+        db.commit()
+        flash('Account created successfully.', 'success')
+        return redirect(url_for('index'))
+
+    @app.route('/accounts/<int:account_id>/delete', methods=['POST'])
+    @login_required
+    @no_cache
+    def delete_account(account_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+
+        db.execute('DELETE FROM transactions WHERE account_id = ?', (account_id,))
+        db.execute('DELETE FROM accounts WHERE account_id = ?', (account_id,))
+        db.commit()
+        flash('Account deleted successfully.', 'success')
+        return redirect(url_for('index'))
+
+    @app.route('/accounts/<int:account_id>')
+    @login_required
+    @no_cache
+    def account_detail(account_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+
+        transactions = db.execute(
+            'SELECT * FROM transactions WHERE account_id = ? ORDER BY transaction_date DESC',
+            (account_id,)
+        ).fetchall()
+        return render_template(
+            'account_detail.html',
+            account=account,
+            transactions=transactions,
+            today=datetime.utcnow().strftime('%Y-%m-%d')
+        )
+
+    @app.route('/accounts/<int:account_id>/transactions/add', methods=['POST'])
+    @login_required
+    @no_cache
+    def add_transaction(account_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        name = request.form.get('transaction_name', '').strip()
+        category = request.form.get('category', '').strip()
+        description = request.form.get('description', '').strip()
+        amount_value = request.form.get('amount', '0').strip() or '0'
+        transaction_date = request.form.get('transaction_date', '').strip() or datetime.utcnow().strftime('%Y-%m-%d')
+
+        try:
+            amount = float(amount_value)
+        except ValueError:
+            amount = None
+
+        if not name or amount is None:
+            flash('Please complete the transaction name and amount.', 'warning')
+            return redirect(url_for('account_detail', account_id=account_id))
+
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+
+        db.execute(
+            'INSERT INTO transactions (account_id, category, name, description, amount, transaction_date) VALUES (?, ?, ?, ?, ?, ?)',
+            (account_id, category, name, description, amount, transaction_date)
+        )
+        db.execute(
+            'UPDATE accounts SET balance = balance + ? WHERE account_id = ?',
+            (amount, account_id)
+        )
+        db.commit()
+        flash('Transaction added successfully.', 'success')
+        return redirect(url_for('account_detail', account_id=account_id))
+
+    @app.route('/accounts/<int:account_id>/transactions/<int:transaction_id>/delete', methods=['POST'])
+    @login_required
+    @no_cache
+    def delete_transaction(account_id, transaction_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+
+        transaction = db.execute(
+            'SELECT * FROM transactions WHERE transaction_id = ? AND account_id = ?',
+            (transaction_id, account_id)
+        ).fetchone()
+        if not transaction:
+            flash('Transaction not found.', 'warning')
+            return redirect(url_for('account_detail', account_id=account_id))
+
+        db.execute('DELETE FROM transactions WHERE transaction_id = ?', (transaction_id,))
+        db.execute('UPDATE accounts SET balance = balance - ? WHERE account_id = ?', (transaction['amount'], account_id))
+        db.commit()
+        flash('Transaction removed successfully.', 'success')
+        return redirect(url_for('account_detail', account_id=account_id))
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():

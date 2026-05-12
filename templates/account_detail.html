@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ account['name'] }} - Account Details{% endblock %}
+
+{% block body %}
+<main class="container main-content">
+    <div class="row gy-4">
+        <div class="col-12">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            <strong>{{ 'Notice' if category == 'info' else category.title() }}:</strong> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between gap-3 align-items-start align-items-md-center">
+                    <div>
+                        <h1 class="page-heading mb-1">{{ account['name'] }}</h1>
+                        <p class="text-muted mb-0">Type: {{ account['type'] }} · Balance: £{{ '%.2f'|format(account['balance'] or 0) }}</p>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to accounts</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card card-surface p-4">
+                <h2 class="h5 mb-3">Add Transaction</h2>
+                <form method="post" action="{{ url_for('add_transaction', account_id=account['account_id']) }}">
+                    <div class="mb-3">
+                        <label for="transaction_name" class="form-label">Transaction name</label>
+                        <input id="transaction_name" name="transaction_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category</label>
+                        <input id="category" name="category" class="form-control" placeholder="Groceries, Salary, Bills">
+                    </div>
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount</label>
+                        <input id="amount" name="amount" type="number" step="0.01" class="form-control" placeholder="0.00" required>
+                        <div class="form-text">Use negative values for expenses and positive values for income.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transaction_date" class="form-label">Date</label>
+                        <input id="transaction_date" name="transaction_date" type="date" class="form-control" value="{{ today }}">
+                    </div>
+                    <div class="mb-4">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea id="description" name="description" class="form-control" rows="3" placeholder="Optional details"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Save transaction</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card card-surface p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="h5 mb-1">Recent Transactions</h2>
+                        <p class="text-muted mb-0">Review and manage transactions for this account.</p>
+                    </div>
+                </div>
+                {% if transactions and transactions|length > 0 %}
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Name</th>
+                                    <th>Category</th>
+                                    <th>Description</th>
+                                    <th class="text-end">Amount</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in transactions %}
+                                    <tr>
+                                        <td>{{ transaction['transaction_date'] }}</td>
+                                        <td>{{ transaction['name'] }}</td>
+                                        <td>{{ transaction['category'] or '—' }}</td>
+                                        <td>{{ transaction['description'] or '—' }}</td>
+                                        <td class="text-end">£{{ '%.2f'|format(transaction['amount'] or 0) }}</td>
+                                        <td class="text-end">
+                                            <form method="post" action="{{ url_for('delete_transaction', account_id=account['account_id'], transaction_id=transaction['transaction_id']) }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-muted">No transactions yet. Add one to start tracking this account.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
