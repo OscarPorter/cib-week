@@ -7,6 +7,7 @@ import pyotp
 import qrcode
 import base64
 import io
+import json
 
 def no_cache(f):
     @wraps(f)
@@ -117,14 +118,94 @@ def register_routes(app):
             flash('Account not found.', 'warning')
             return redirect(url_for('index'))
 
-        transactions = db.execute(
-            'SELECT * FROM transactions WHERE account_id = ? ORDER BY transaction_date DESC',
-            (account_id,)
-        ).fetchall()
+        categories = db.execute('SELECT * FROM categories ORDER BY name').fetchall()
+
+        transactions = db.execute('''
+            SELECT t.*, c.name AS category_name, c.colour AS category_colour
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.category_id
+            WHERE t.account_id = ?
+            ORDER BY t.transaction_date DESC
+        ''', (account_id,)).fetchall()
+
+        transactions_asc = db.execute('''
+            SELECT t.amount, t.transaction_date, c.name AS category_name, c.colour AS category_colour
+            FROM transactions t
+            LEFT JOIN categories c ON t.category_id = c.category_id
+            WHERE t.account_id = ?
+            ORDER BY t.transaction_date ASC, t.transaction_id ASC
+        ''', (account_id,)).fetchall()
+
+        # Group by date for line chart
+        date_groups = {}
+        for t in transactions_asc:
+            date = str(t['transaction_date'])[:10]
+            amount = t['amount'] or 0
+            if date not in date_groups:
+                date_groups[date] = {'expenses': 0, 'revenue': 0, 'net': 0}
+            if amount < 0:
+                date_groups[date]['expenses'] += abs(amount)
+            else:
+                date_groups[date]['revenue'] += amount
+            date_groups[date]['net'] += amount
+
+        total_amounts = sum((t['amount'] or 0) for t in transactions_asc)
+        opening_balance = (account['balance'] or 0) - total_amounts
+
+        sorted_dates = sorted(date_groups.keys())
+        line_balance, line_expenses, line_revenue = [], [], []
+        running = opening_balance
+        for date in sorted_dates:
+            running += date_groups[date]['net']
+            line_balance.append(round(running, 2))
+            line_expenses.append(round(date_groups[date]['expenses'], 2))
+            line_revenue.append(round(date_groups[date]['revenue'], 2))
+
+        # Group expenses by category for expenditure pie chart
+        cat_totals, cat_colours = {}, {}
+        for t in transactions_asc:
+            amount = t['amount'] or 0
+            if amount < 0:
+                cat = t['category_name'] or 'Uncategorised'
+                cat_totals[cat] = cat_totals.get(cat, 0) + abs(amount)
+                cat_colours[cat] = t['category_colour'] or '#AED6F1'
+
+        # Group income by category for income pie chart
+        income_totals, income_colours = {}, {}
+        for t in transactions_asc:
+            amount = t['amount'] or 0
+            if amount > 0:
+                cat = t['category_name'] or 'Uncategorised'
+                income_totals[cat] = income_totals.get(cat, 0) + amount
+                income_colours[cat] = t['category_colour'] or '#98D8C8'
+
+        pie_labels = list(cat_totals.keys())
+        income_labels = list(income_totals.keys())
+        chart_data = json.dumps({
+            'line': {
+                'labels': sorted_dates,
+                'balance': line_balance,
+                'expenses': line_expenses,
+                'revenue': line_revenue,
+            },
+            'pie': {
+                'labels': pie_labels,
+                'amounts': [round(cat_totals[k], 2) for k in pie_labels],
+                'colours': [cat_colours[k] for k in pie_labels],
+            },
+            'pie_income': {
+                'labels': income_labels,
+                'amounts': [round(income_totals[k], 2) for k in income_labels],
+                'colours': [income_colours[k] for k in income_labels],
+            }
+        })
+
         return render_template(
             'account_detail.html',
             account=account,
             transactions=transactions,
+            categories=categories,
+            chart_data=chart_data,
             today=datetime.utcnow().strftime('%Y-%m-%d')
         )
 
@@ -156,9 +237,14 @@ def register_routes(app):
             flash('Account not found.', 'warning')
             return redirect(url_for('index'))
 
+        category_row = db.execute(
+            'SELECT category_id FROM categories WHERE name = ?', (category,)
+        ).fetchone() if category else None
+        category_id = category_row['category_id'] if category_row else None
+
         db.execute(
-            'INSERT INTO transactions (account_id, category, name, description, amount, transaction_date) VALUES (?, ?, ?, ?, ?, ?)',
-            (account_id, category, name, description, amount, transaction_date)
+            'INSERT INTO transactions (account_id, category_id, name, description, amount, transaction_date) VALUES (?, ?, ?, ?, ?, ?)',
+            (account_id, category_id, name, description, amount, transaction_date)
         )
         db.execute(
             'UPDATE accounts SET balance = balance + ? WHERE account_id = ?',

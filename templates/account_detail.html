@@ -32,6 +32,40 @@
             </div>
         </div>
 
+        <!-- Line Chart -->
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <h2 class="h5 mb-3">Activity Over Time</h2>
+                {% if transactions and transactions|length > 0 %}
+                    <canvas id="lineChart"></canvas>
+                {% else %}
+                    <p class="text-muted mb-0">No transactions to display.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Expenditure Pie Chart -->
+        <div class="col-lg-6">
+            <div class="card card-surface p-4">
+                <h2 class="h5 mb-3">Expenditure by Category</h2>
+                <div id="pie-wrap">
+                    <p class="text-muted mb-0" id="pie-empty">No expense data to display.</p>
+                </div>
+                <div id="pie-legend" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Income Pie Chart -->
+        <div class="col-lg-6">
+            <div class="card card-surface p-4">
+                <h2 class="h5 mb-3">Income by Category</h2>
+                <div id="pie-income-wrap">
+                    <p class="text-muted mb-0" id="pie-income-empty">No income data to display.</p>
+                </div>
+                <div id="pie-income-legend" class="mt-3"></div>
+            </div>
+        </div>
+
         <div class="col-lg-5">
             <div class="card card-surface p-4">
                 <h2 class="h5 mb-3">Add Transaction</h2>
@@ -42,7 +76,17 @@
                     </div>
                     <div class="mb-3">
                         <label for="category" class="form-label">Category</label>
-                        <input id="category" name="category" class="form-control" placeholder="Groceries, Salary, Bills">
+                        <div class="input-group">
+                            <span class="input-group-text px-2">
+                                <span id="category-colour-dot" class="colour-dot" data-colour="#dee2e6"></span>
+                            </span>
+                            <select id="category" name="category" class="form-select">
+                                <option value="">— None —</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat['name'] }}" data-colour="{{ cat['colour'] }}">{{ cat['name'] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="amount" class="form-label">Amount</label>
@@ -88,9 +132,20 @@
                                     <tr>
                                         <td>{{ transaction['transaction_date'] }}</td>
                                         <td>{{ transaction['name'] }}</td>
-                                        <td>{{ transaction['category'] or '—' }}</td>
+                                        <td>
+                                            {% if transaction['category_name'] %}
+                                                <span class="d-inline-flex align-items-center gap-1">
+                                                    <span class="colour-dot" data-colour="{{ transaction['category_colour'] or '#AED6F1' }}"></span>
+                                                    {{ transaction['category_name'] }}
+                                                </span>
+                                            {% else %}
+                                                —
+                                            {% endif %}
+                                        </td>
                                         <td>{{ transaction['description'] or '—' }}</td>
-                                        <td class="text-end">£{{ '%.2f'|format(transaction['amount'] or 0) }}</td>
+                                        <td class="text-end {% if (transaction['amount'] or 0) < 0 %}text-danger{% else %}text-success{% endif %}">
+                                            £{{ '%.2f'|format(transaction['amount'] or 0) }}
+                                        </td>
                                         <td class="text-end">
                                             <form method="post" action="{{ url_for('delete_transaction', account_id=account['account_id'], transaction_id=transaction['transaction_id']) }}">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
@@ -108,4 +163,167 @@
         </div>
     </div>
 </main>
+
+<script type="application/json" id="chart-data">{{ chart_data | safe }}</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    // Apply colour-dot styles from data attributes
+    document.querySelectorAll('.colour-dot').forEach(function (el) {
+        var c = el.getAttribute('data-colour') || '#dee2e6';
+        el.style.cssText = 'display:inline-block;width:10px;height:10px;border-radius:50%;background:' + c + ';flex-shrink:0;';
+    });
+
+    // Category colour dot in dropdown
+    var categorySelect = document.getElementById('category');
+    var colourDot = document.getElementById('category-colour-dot');
+    function updateDot() {
+        var selected = categorySelect.options[categorySelect.selectedIndex];
+        var colour = selected ? (selected.getAttribute('data-colour') || '#dee2e6') : '#dee2e6';
+        colourDot.setAttribute('data-colour', colour);
+        colourDot.style.background = colour;
+    }
+    categorySelect.addEventListener('change', updateDot);
+    updateDot();
+
+    // Build a custom HTML legend showing colour, name, total, and percentage
+    function buildLegend(containerId, labels, amounts, colours) {
+        if (!labels.length) return;
+        var total = amounts.reduce(function (a, b) { return a + b; }, 0);
+        var html = '<div class="d-flex flex-column gap-2">';
+        for (var i = 0; i < labels.length; i++) {
+            var pct = total > 0 ? (amounts[i] / total * 100).toFixed(1) : '0.0';
+            html += '<div class="d-flex align-items-center gap-2">' +
+                '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + colours[i] + ';flex-shrink:0;"></span>' +
+                '<span class="flex-grow-1 small">' + labels[i] + '</span>' +
+                '<span class="text-muted small">£' + amounts[i].toFixed(2) + ' &nbsp;(' + pct + '%)</span>' +
+                '</div>';
+        }
+        html += '</div>';
+        document.getElementById(containerId).innerHTML = html;
+    }
+
+    var chartData = JSON.parse(document.getElementById('chart-data').textContent);
+
+    // Line chart
+    if (chartData.line.labels.length > 0) {
+        var lineCtx = document.getElementById('lineChart').getContext('2d');
+        new Chart(lineCtx, {
+            type: 'line',
+            data: {
+                labels: chartData.line.labels,
+                datasets: [
+                    {
+                        label: 'Balance (£)',
+                        data: chartData.line.balance,
+                        borderColor: '#4ECDC4',
+                        backgroundColor: 'rgba(78,205,196,0.08)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 4
+                    },
+                    {
+                        label: 'Revenue (£)',
+                        data: chartData.line.revenue,
+                        borderColor: '#98D8C8',
+                        backgroundColor: 'transparent',
+                        tension: 0.3,
+                        borderDash: [4, 4],
+                        pointRadius: 3
+                    },
+                    {
+                        label: 'Expenses (£)',
+                        data: chartData.line.expenses,
+                        borderColor: '#FF6B6B',
+                        backgroundColor: 'transparent',
+                        tension: 0.3,
+                        borderDash: [4, 4],
+                        pointRadius: 3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                aspectRatio: 2.4,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) { return ' £' + ctx.parsed.y.toFixed(2); }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: { callback: function (v) { return '£' + v.toFixed(2); } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Expenditure pie chart
+    if (chartData.pie.labels.length > 0) {
+        document.getElementById('pie-empty').remove();
+        var pieCanvas = document.createElement('canvas');
+        pieCanvas.id = 'pieChart';
+        document.getElementById('pie-wrap').appendChild(pieCanvas);
+        new Chart(pieCanvas.getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: chartData.pie.labels,
+                datasets: [{
+                    data: chartData.pie.amounts,
+                    backgroundColor: chartData.pie.colours,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) { return ' ' + ctx.label + ': £' + ctx.parsed.toFixed(2); }
+                        }
+                    }
+                }
+            }
+        });
+        buildLegend('pie-legend', chartData.pie.labels, chartData.pie.amounts, chartData.pie.colours);
+    }
+
+    // Income pie chart
+    if (chartData.pie_income.labels.length > 0) {
+        document.getElementById('pie-income-empty').remove();
+        var pieIncomeCanvas = document.createElement('canvas');
+        pieIncomeCanvas.id = 'pieIncomeChart';
+        document.getElementById('pie-income-wrap').appendChild(pieIncomeCanvas);
+        new Chart(pieIncomeCanvas.getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: chartData.pie_income.labels,
+                datasets: [{
+                    data: chartData.pie_income.amounts,
+                    backgroundColor: chartData.pie_income.colours,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) { return ' ' + ctx.label + ': £' + ctx.parsed.toFixed(2); }
+                        }
+                    }
+                }
+            }
+        });
+        buildLegend('pie-income-legend', chartData.pie_income.labels, chartData.pie_income.amounts, chartData.pie_income.colours);
+    }
+</script>
 {% endblock %}
