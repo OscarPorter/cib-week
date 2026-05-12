@@ -1,5 +1,4 @@
 import sqlite3
-from werkzeug.security import generate_password_hash
 
 DB = 'finance.db'
 
@@ -101,26 +100,3 @@ def init_db():
                          FOREIGN KEY (adviser_id) REFERENCES advisers(adviser_id),
                          PRIMARY KEY (team_id, adviser_id) );
         ''')
-
-        try:
-            if db.execute('SELECT 1 FROM customers WHERE email = ?', ('customer@example.com',)).fetchone() is None:
-                db.execute(
-                    'INSERT INTO customers (name, email, password, currency) VALUES (?, ?, ?, ?)',
-                    ('Test Customer', 'customer@example.com', generate_password_hash('cust123'), 'GBP')
-                )
-
-            if db.execute('SELECT 1 FROM advisers WHERE email = ?', ('adviser@example.com',)).fetchone() is None:
-                db.execute(
-                    'INSERT INTO advisers (name, email, password, currency, is_manager) VALUES (?, ?, ?, ?, ?)',
-                    ('Test Adviser', 'adviser@example.com', generate_password_hash('adv123'), 'GBP', 0)
-                )
-
-            if db.execute('SELECT 1 FROM advisers WHERE email = ?', ('manager@example.com',)).fetchone() is None:
-                db.execute(
-                    'INSERT INTO advisers (name, email, password, currency, is_manager) VALUES (?, ?, ?, ?, ?)',
-                    ('Test Manager', 'manager@example.com', generate_password_hash('mgr123'), 'GBP', 1)
-                )
-
-            db.commit()
-        except sqlite3.IntegrityError:
-            pass
