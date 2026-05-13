@@ -148,7 +148,12 @@
         {% if not is_adviser_view %}
         <div class="col-lg-5">
             <div class="card card-surface p-4">
-                <h2 class="h5 mb-3">Add Transaction</h2>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h5 mb-0">Add Transaction</h2>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#bulkModal" style="border-radius:var(--radius-pill);font-size:0.8rem;">
+                        Bulk entry
+                    </button>
+                </div>
                 <form method="post" action="{{ url_for('add_transaction', account_id=account['account_id']) }}">
                     <div class="mb-3">
                         <label for="transaction_name" class="form-label">Transaction name</label>
@@ -287,6 +292,139 @@
 </main>
 
 {% if not is_adviser_view %}
+<!-- Bulk Entry Modal -->
+<div class="modal fade" id="bulkModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="border-radius:var(--radius-lg);border:1px solid var(--clr-gray-200);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Bulk Transaction Entry</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{{ url_for('add_transactions_bulk', account_id=account['account_id']) }}">
+                <div class="modal-body pt-3">
+
+                    <!-- Shared fields -->
+                    <div class="row g-2 mb-4">
+                        <div class="col-sm-4">
+                            <label class="form-label" style="font-size:0.8rem;">Date</label>
+                            <input name="transaction_date" type="date" class="form-control form-control-sm" value="{{ today }}">
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" style="font-size:0.8rem;">Merchant</label>
+                            <input name="merchant" type="text" class="form-control form-control-sm" placeholder="e.g. Tesco">
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label" style="font-size:0.8rem;">Payment Method</label>
+                            <select name="payment_method" class="form-select form-select-sm">
+                                <option value="">— None —</option>
+                                <option>Cash</option>
+                                <option>Debit Card</option>
+                                <option>Credit Card</option>
+                                <option>Bank Transfer</option>
+                                <option>Direct Debit</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Item rows -->
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-2" id="bulk-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:40%">Item name</th>
+                                    <th style="width:35%">Category</th>
+                                    <th style="width:20%">Amount (£)</th>
+                                    <th style="width:5%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulk-rows">
+                                <!-- rows injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="bulk-add-row" style="border-radius:var(--radius-pill);font-size:0.8rem;">+ Add item</button>
+
+                </div>
+                <div class="modal-footer border-0 pt-0 d-flex justify-content-between align-items-center">
+                    <span class="text-muted" style="font-size:0.875rem;">Total: <strong id="bulk-total">£0.00</strong></span>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-secondary btn-sm px-3" style="border-radius:var(--radius-pill);" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-dark btn-sm px-3" id="bulk-submit" style="border-radius:var(--radius-pill);">Save items</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Category options for bulk rows (rendered once, read by JS) -->
+<script id="bulk-categories-data" type="application/json">
+[{% for cat in categories %}{"name":{{ cat['name']|tojson }},"colour":{{ cat['colour']|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]
+</script>
+
+<script>
+(function () {
+    var categories = JSON.parse(document.getElementById('bulk-categories-data').textContent);
+
+    function categoryOptions() {
+        var html = '<option value="">— None —</option>';
+        categories.forEach(function (c) {
+            html += '<option value="' + escHtml(c.name) + '">' + escHtml(c.name) + '</option>';
+        });
+        return html;
+    }
+
+    function escHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function addRow(name, category, amount) {
+        var tbody = document.getElementById('bulk-rows');
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><input type="text" name="name[]" class="form-control form-control-sm bulk-name" value="' + escHtml(name || '') + '" placeholder="e.g. Milk"></td>' +
+            '<td><select name="category[]" class="form-select form-select-sm">' + categoryOptions() + '</select></td>' +
+            '<td><input type="number" name="amount[]" class="form-control form-control-sm bulk-amount" step="0.01" value="' + escHtml(amount || '') + '" placeholder="−2.50"></td>' +
+            '<td><button type="button" class="btn btn-sm text-danger fw-bold remove-row" style="line-height:1;padding:0.1rem 0.4rem;">&times;</button></td>';
+        tbody.appendChild(tr);
+        if (category) {
+            var sel = tr.querySelector('select');
+            for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === category) { sel.selectedIndex = i; break; }
+            }
+        }
+        updateTotal();
+    }
+
+    function updateTotal() {
+        var inputs = document.querySelectorAll('#bulk-rows .bulk-amount');
+        var total = 0;
+        inputs.forEach(function (inp) { total += parseFloat(inp.value) || 0; });
+        document.getElementById('bulk-total').textContent = '£' + total.toFixed(2);
+        var count = document.querySelectorAll('#bulk-rows tr').length;
+        document.getElementById('bulk-submit').textContent = 'Save ' + count + ' item' + (count !== 1 ? 's' : '');
+    }
+
+    document.getElementById('bulk-add-row').addEventListener('click', function () { addRow(); });
+
+    document.getElementById('bulk-rows').addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-row')) {
+            var rows = document.querySelectorAll('#bulk-rows tr');
+            if (rows.length > 1) { e.target.closest('tr').remove(); updateTotal(); }
+        }
+    });
+
+    document.getElementById('bulk-rows').addEventListener('input', updateTotal);
+
+    // Initialise with 3 empty rows when modal opens
+    document.getElementById('bulkModal').addEventListener('show.bs.modal', function () {
+        document.getElementById('bulk-rows').innerHTML = '';
+        addRow(); addRow(); addRow();
+    });
+}());
+</script>
+
 <!-- Edit Transaction Modal -->
 <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
     <div class="modal-dialog">

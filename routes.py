@@ -391,6 +391,59 @@ def register_routes(app):
         flash('Transaction added successfully.', 'success')
         return redirect(url_for('account_detail', account_id=account_id))
 
+    @app.route('/accounts/<int:account_id>/transactions/add-bulk', methods=['POST'])
+    @login_required
+    @no_cache
+    def add_transactions_bulk(account_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+
+        merchant        = request.form.get('merchant', '').strip() or None
+        payment_method  = request.form.get('payment_method', '').strip() or None
+        transaction_date = request.form.get('transaction_date', '').strip() or datetime.utcnow().strftime('%Y-%m-%d')
+
+        names      = request.form.getlist('name[]')
+        categories = request.form.getlist('category[]')
+        amounts    = request.form.getlist('amount[]')
+
+        rows = []
+        for name, category, amount_str in zip(names, categories, amounts):
+            name = name.strip()
+            amount_str = amount_str.strip()
+            if not name or not amount_str:
+                continue
+            try:
+                amount = float(amount_str)
+            except ValueError:
+                continue
+            category_row = db.execute(
+                'SELECT category_id FROM categories WHERE name = ? AND (customer_id IS NULL OR customer_id = ?)',
+                (category, session['user_id'])
+            ).fetchone() if category else None
+            category_id = category_row['category_id'] if category_row else None
+            rows.append((account_id, category_id, name, merchant, payment_method, amount, transaction_date))
+
+        if not rows:
+            flash('No valid transactions to save.', 'warning')
+            return redirect(url_for('account_detail', account_id=account_id))
+
+        for row in rows:
+            db.execute(
+                'INSERT INTO transactions (account_id, category_id, name, merchant, payment_method, amount, transaction_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                row
+            )
+        total = sum(r[5] for r in rows)
+        db.execute('UPDATE accounts SET balance = balance + ? WHERE account_id = ?', (total, account_id))
+        db.commit()
+        flash(f'{len(rows)} transaction{"s" if len(rows) != 1 else ""} added successfully.', 'success')
+        return redirect(url_for('account_detail', account_id=account_id))
+
     @app.route('/accounts/<int:account_id>/transactions/<int:transaction_id>/edit', methods=['POST'])
     @login_required
     @no_cache
