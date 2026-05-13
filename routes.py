@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, session, flash, make_response
+from flask import render_template, request, redirect, url_for, session, flash, make_response, send_file
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from database import get_db
@@ -10,6 +10,8 @@ import io
 import json
 import math
 import random
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
 
 def no_cache(f):
     @wraps(f)
@@ -303,6 +305,8 @@ def register_routes(app):
         name = request.form.get('transaction_name', '').strip()
         category = request.form.get('category', '').strip()
         description = request.form.get('description', '').strip()
+        merchant = request.form.get('merchant', '').strip()
+        payment_method = request.form.get('payment_method', '').strip()
         amount_value = request.form.get('amount', '0').strip() or '0'
         transaction_date = request.form.get('transaction_date', '').strip() or datetime.utcnow().strftime('%Y-%m-%d')
 
@@ -327,8 +331,8 @@ def register_routes(app):
         category_id = category_row['category_id'] if category_row else None
 
         db.execute(
-            'INSERT INTO transactions (account_id, category_id, name, description, amount, transaction_date) VALUES (?, ?, ?, ?, ?, ?)',
-            (account_id, category_id, name, description, amount, transaction_date)
+            'INSERT INTO transactions (account_id, category_id, name, description, merchant, payment_method, amount, transaction_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (account_id, category_id, name, description, merchant or None, payment_method or None, amount, transaction_date)
         )
         db.execute(
             'UPDATE accounts SET balance = balance + ? WHERE account_id = ?',
@@ -336,6 +340,63 @@ def register_routes(app):
         )
         db.commit()
         flash('Transaction added successfully.', 'success')
+        return redirect(url_for('account_detail', account_id=account_id))
+
+    @app.route('/accounts/<int:account_id>/transactions/<int:transaction_id>/edit', methods=['POST'])
+    @login_required
+    @no_cache
+    def edit_transaction(account_id, transaction_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+
+        transaction = db.execute(
+            'SELECT * FROM transactions WHERE transaction_id = ? AND account_id = ?',
+            (transaction_id, account_id)
+        ).fetchone()
+        if not transaction:
+            flash('Transaction not found.', 'warning')
+            return redirect(url_for('account_detail', account_id=account_id))
+
+        name = request.form.get('transaction_name', '').strip()
+        category = request.form.get('category', '').strip()
+        description = request.form.get('description', '').strip()
+        merchant = request.form.get('merchant', '').strip()
+        payment_method = request.form.get('payment_method', '').strip()
+        amount_value = request.form.get('amount', '0').strip() or '0'
+        transaction_date = request.form.get('transaction_date', '').strip() or datetime.utcnow().strftime('%Y-%m-%d')
+
+        try:
+            new_amount = float(amount_value)
+        except ValueError:
+            flash('Invalid amount.', 'warning')
+            return redirect(url_for('account_detail', account_id=account_id))
+
+        if not name:
+            flash('Transaction name is required.', 'warning')
+            return redirect(url_for('account_detail', account_id=account_id))
+
+        category_row = db.execute(
+            'SELECT category_id FROM categories WHERE name = ?', (category,)
+        ).fetchone() if category else None
+        category_id = category_row['category_id'] if category_row else None
+
+        old_amount = transaction['amount'] or 0
+        balance_delta = new_amount - old_amount
+
+        db.execute('''
+            UPDATE transactions
+            SET name=?, category_id=?, description=?, merchant=?, payment_method=?, amount=?, transaction_date=?
+            WHERE transaction_id=?
+        ''', (name, category_id, description, merchant or None, payment_method or None, new_amount, transaction_date, transaction_id))
+        db.execute('UPDATE accounts SET balance = balance + ? WHERE account_id = ?', (balance_delta, account_id))
+        db.commit()
+        flash('Transaction updated successfully.', 'success')
         return redirect(url_for('account_detail', account_id=account_id))
 
     @app.route('/accounts/<int:account_id>/toggle-privacy', methods=['POST'])
@@ -436,10 +497,35 @@ def register_routes(app):
             WHERE ua.adviser_id = ? AND ua.status = 'pending'
             ORDER BY c.name
         ''', (session['user_id'],)).fetchall()
+        tasks = db.execute('''
+            SELECT at.*, c.name AS customer_name
+            FROM adviser_tasks at
+            LEFT JOIN customers c ON at.customer_id = c.customer_id
+            WHERE at.adviser_id = ? AND at.status != 'completed'
+            ORDER BY at.priority ASC, at.created_at ASC
+        ''', (session['user_id'],)).fetchall()
+        consultations = db.execute('''
+            SELECT con.*, c.name AS customer_name
+            FROM consultations con
+            JOIN customers c ON con.customer_id = c.customer_id
+            WHERE con.adviser_id = ?
+            ORDER BY con.scheduled_at DESC, con.created_at DESC
+        ''', (session['user_id'],)).fetchall()
+        support_tickets = db.execute('''
+            SELECT st.*, c.name AS customer_name
+            FROM support_tickets st
+            JOIN customers c ON st.customer_id = c.customer_id
+            JOIN user_assignments ua ON ua.customer_id = st.customer_id
+            WHERE ua.adviser_id = ? AND ua.status = 'accepted'
+            ORDER BY st.created_at DESC
+        ''', (session['user_id'],)).fetchall()
         recent_trend, historical_trend, news = _get_market_data()
         return render_template('adviser_dashboard.html',
                                clients=clients,
                                pending_requests=pending_requests,
+                               tasks=tasks,
+                               consultations=consultations,
+                               support_tickets=support_tickets,
                                recent_trend=recent_trend,
                                historical_trend=historical_trend,
                                news=news)
@@ -497,10 +583,54 @@ def register_routes(app):
             JOIN advisers a ON ua.adviser_id = a.adviser_id
             ORDER BY c.name
         ''').fetchall()
+        support_tickets = db.execute('''
+            SELECT st.*, c.name AS customer_name,
+                   COALESCE(a.name, 'Unassigned') AS adviser_name
+            FROM support_tickets st
+            JOIN customers c ON st.customer_id = c.customer_id
+            LEFT JOIN user_assignments ua ON ua.customer_id = st.customer_id AND ua.status = 'accepted'
+            LEFT JOIN advisers a ON ua.adviser_id = a.adviser_id
+            ORDER BY st.status ASC, st.created_at DESC
+        ''').fetchall()
+
+        # Performance metrics per adviser
+        perf_rows = db.execute('''
+            SELECT a.adviser_id, a.name,
+                   COUNT(DISTINCT ua.customer_id) AS client_count,
+                   COUNT(CASE WHEN at.status != 'completed' THEN 1 END) AS open_tasks,
+                   COUNT(CASE WHEN at.status = 'completed' THEN 1 END) AS completed_tasks,
+                   AVG(CASE WHEN at.status = 'completed' AND at.completed_at IS NOT NULL
+                       THEN (julianday(at.completed_at) - julianday(at.created_at)) * 24
+                       ELSE NULL END) AS avg_completion_hours
+            FROM advisers a
+            LEFT JOIN user_assignments ua ON ua.adviser_id = a.adviser_id AND ua.status = 'accepted'
+            LEFT JOIN adviser_tasks at ON at.adviser_id = a.adviser_id
+            WHERE a.is_manager = 0
+            GROUP BY a.adviser_id, a.name
+            ORDER BY a.name
+        ''').fetchall()
+
+        # Clients per adviser for roster view
+        adviser_clients = {}
+        for adv in advisers:
+            adviser_clients[adv['adviser_id']] = db.execute('''
+                SELECT c.customer_id, c.name, c.email
+                FROM user_assignments ua
+                JOIN customers c ON ua.customer_id = c.customer_id
+                WHERE ua.adviser_id = ? AND ua.status = 'accepted'
+                ORDER BY c.name
+            ''', (adv['adviser_id'],)).fetchall()
+
+        perf_rows_dicts = [dict(r) for r in perf_rows]
+
         return render_template('manager_dashboard.html',
                                pending_requests=pending_requests,
                                advisers=advisers,
-                               assignments=assignments)
+                               assignments=assignments,
+                               support_tickets=support_tickets,
+                               perf_rows=perf_rows,
+                               perf_rows_json=perf_rows_dicts,
+                               adviser_clients=adviser_clients)
 
     @app.route('/manager/assign/<int:customer_id>', methods=['POST'])
     @login_required
@@ -591,6 +721,212 @@ def register_routes(app):
         db.commit()
         flash('Transaction removed successfully.', 'success')
         return redirect(url_for('account_detail', account_id=account_id))
+
+    @app.route('/support/submit', methods=['POST'])
+    @login_required
+    @no_cache
+    def submit_support_ticket():
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        ticket_type = request.form.get('ticket_type', 'help')
+        subject = request.form.get('subject', '').strip()
+        message = request.form.get('message', '').strip()
+
+        if not subject or not message:
+            flash('Please fill in all fields.', 'warning')
+            return redirect(url_for('index'))
+
+        db = get_db()
+        db.execute(
+            'INSERT INTO support_tickets (customer_id, type, subject, message) VALUES (?, ?, ?, ?)',
+            (session['user_id'], ticket_type, subject, message)
+        )
+        ticket_id = db.execute('SELECT last_insert_rowid()').fetchone()[0]
+
+        assignment = db.execute(
+            "SELECT adviser_id FROM user_assignments WHERE customer_id = ? AND status = 'accepted'",
+            (session['user_id'],)
+        ).fetchone()
+
+        if assignment:
+            priority = 1 if ticket_type == 'complaint' else 2
+            customer = db.execute('SELECT name FROM customers WHERE customer_id = ?', (session['user_id'],)).fetchone()
+            task_title = f"{'Complaint' if ticket_type == 'complaint' else 'Help request'}: {subject}"
+            db.execute('''
+                INSERT INTO adviser_tasks (adviser_id, customer_id, ticket_id, title, description, priority)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (assignment['adviser_id'], session['user_id'], ticket_id, task_title,
+                  f"From {customer['name']}: {message}", priority))
+
+        db.commit()
+        flash('Your request has been submitted.', 'success')
+        return redirect(url_for('index'))
+
+    @app.route('/support/tickets/<int:ticket_id>/resolve', methods=['POST'])
+    @login_required
+    @no_cache
+    def resolve_ticket(ticket_id):
+        if session.get('role') not in ('adviser',) and not session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        db.execute(
+            "UPDATE support_tickets SET status='resolved', resolved_at=CURRENT_TIMESTAMP WHERE ticket_id=?",
+            (ticket_id,)
+        )
+        db.commit()
+        flash('Ticket marked as resolved.', 'success')
+        return redirect(request.referrer or url_for('adviser_dashboard'))
+
+    @app.route('/consultations/create', methods=['POST'])
+    @login_required
+    @no_cache
+    def create_consultation():
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        assignment = db.execute(
+            "SELECT adviser_id FROM user_assignments WHERE customer_id = ? AND status = 'accepted'",
+            (session['user_id'],)
+        ).fetchone()
+        if not assignment:
+            flash('You need an assigned adviser before scheduling a consultation.', 'warning')
+            return redirect(url_for('index'))
+
+        title = request.form.get('title', '').strip()
+        notes = request.form.get('notes', '').strip()
+        scheduled_at = request.form.get('scheduled_at', '').strip() or None
+
+        if not title:
+            flash('Please provide a consultation title.', 'warning')
+            return redirect(url_for('index'))
+
+        db.execute('''
+            INSERT INTO consultations (customer_id, adviser_id, title, notes, scheduled_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (session['user_id'], assignment['adviser_id'], title, notes or None, scheduled_at))
+        db.commit()
+        flash('Consultation request submitted.', 'success')
+        return redirect(url_for('index'))
+
+    @app.route('/consultations/<int:consultation_id>/update', methods=['POST'])
+    @login_required
+    @no_cache
+    def update_consultation(consultation_id):
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        new_status = request.form.get('status', 'scheduled')
+        db = get_db()
+        db.execute(
+            'UPDATE consultations SET status=? WHERE consultation_id=? AND adviser_id=?',
+            (new_status, consultation_id, session['user_id'])
+        )
+        db.commit()
+        flash('Consultation updated.', 'success')
+        return redirect(url_for('adviser_dashboard'))
+
+    @app.route('/adviser/clients/<int:customer_id>/export')
+    @login_required
+    @no_cache
+    def export_client_transactions(customer_id):
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        assignment = db.execute(
+            "SELECT 1 FROM user_assignments WHERE adviser_id=? AND customer_id=? AND status='accepted'",
+            (session['user_id'], customer_id)
+        ).fetchone()
+        if not assignment:
+            flash('You do not have access to this client.', 'danger')
+            return redirect(url_for('adviser_dashboard'))
+
+        customer = db.execute('SELECT name FROM customers WHERE customer_id=?', (customer_id,)).fetchone()
+        rows = db.execute('''
+            SELECT a.name AS account_name, t.transaction_date, t.name, cat.name AS category,
+                   t.merchant, t.payment_method, t.description, t.amount
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.account_id
+            LEFT JOIN categories cat ON t.category_id = cat.category_id
+            WHERE a.customer_id = ? AND a.is_private = 0
+            ORDER BY t.transaction_date DESC
+        ''', (customer_id,)).fetchall()
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Transactions'
+
+        header_font = Font(bold=True, color='FFFFFF')
+        header_fill = PatternFill('solid', fgColor='2563EB')
+        headers = ['Date', 'Account', 'Transaction Name', 'Category', 'Merchant', 'Payment Method', 'Description', 'Amount (£)']
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center')
+
+        for row_idx, row in enumerate(rows, 2):
+            ws.cell(row=row_idx, column=1, value=str(row['transaction_date'])[:10])
+            ws.cell(row=row_idx, column=2, value=row['account_name'])
+            ws.cell(row=row_idx, column=3, value=row['name'])
+            ws.cell(row=row_idx, column=4, value=row['category'] or '')
+            ws.cell(row=row_idx, column=5, value=row['merchant'] or '')
+            ws.cell(row=row_idx, column=6, value=row['payment_method'] or '')
+            ws.cell(row=row_idx, column=7, value=row['description'] or '')
+            amount_cell = ws.cell(row=row_idx, column=8, value=row['amount'] or 0)
+            if (row['amount'] or 0) < 0:
+                amount_cell.font = Font(color='CC0000')
+            else:
+                amount_cell.font = Font(color='006600')
+
+        for col in ws.columns:
+            max_len = max((len(str(c.value or '')) for c in col), default=8)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        filename = f"{customer['name'].replace(' ', '_')}_transactions.xlsx"
+        return send_file(buf, as_attachment=True, download_name=filename,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+    @app.route('/adviser/tasks/<int:task_id>/complete', methods=['POST'])
+    @login_required
+    @no_cache
+    def complete_task(task_id):
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        db.execute('''
+            UPDATE adviser_tasks SET status='completed', completed_at=CURRENT_TIMESTAMP
+            WHERE task_id=? AND adviser_id=?
+        ''', (task_id, session['user_id']))
+        db.commit()
+        flash('Task marked as complete.', 'success')
+        return redirect(url_for('adviser_dashboard'))
+
+    @app.route('/manager/reassign/<int:customer_id>', methods=['POST'])
+    @login_required
+    @no_cache
+    def reassign_client(customer_id):
+        if session.get('role') != 'adviser' or not session.get('is_manager'):
+            return redirect(url_for('index'))
+        new_adviser_id = request.form.get('new_adviser_id', type=int)
+        if not new_adviser_id:
+            flash('Please select a new adviser.', 'warning')
+            return redirect(url_for('manager_dashboard'))
+        db = get_db()
+        adviser = db.execute('SELECT * FROM advisers WHERE adviser_id=? AND is_manager=0', (new_adviser_id,)).fetchone()
+        if not adviser:
+            flash('Adviser not found.', 'warning')
+            return redirect(url_for('manager_dashboard'))
+        db.execute(
+            "UPDATE user_assignments SET adviser_id=?, status='accepted' WHERE customer_id=?",
+            (new_adviser_id, customer_id)
+        )
+        db.commit()
+        flash('Client reassigned successfully.', 'success')
+        return redirect(url_for('manager_dashboard'))
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():

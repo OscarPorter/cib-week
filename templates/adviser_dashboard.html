@@ -21,13 +21,12 @@
         <div class="col-12">
             <div class="card card-surface p-4">
                 <h1 class="page-heading mb-2">Adviser Dashboard</h1>
-                <p class="text-muted mb-0">Manage your client requests, view assigned clients, and monitor market activity.</p>
+                <p class="text-muted mb-0">Manage your client requests, tasks, consultations, and monitor market activity.</p>
             </div>
         </div>
 
         <div class="col-12">
             <div class="card card-surface p-4">
-                <!-- Tab navigation -->
                 <ul class="nav nav-pills mb-4" id="adviserTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="requests-tab" data-bs-toggle="pill"
@@ -48,6 +47,36 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tasks-tab" data-bs-toggle="pill"
+                                data-bs-target="#tasks-panel" type="button" role="tab">
+                            Tasks
+                            {% if tasks %}
+                                <span class="badge bg-warning text-dark ms-1">{{ tasks|length }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary ms-1">0</span>
+                            {% endif %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="consultations-tab" data-bs-toggle="pill"
+                                data-bs-target="#consultations-panel" type="button" role="tab">
+                            Consultations
+                            <span class="badge bg-secondary ms-1">{{ consultations|length }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tickets-tab" data-bs-toggle="pill"
+                                data-bs-target="#tickets-panel" type="button" role="tab">
+                            Support
+                            {% set open_count = support_tickets | selectattr('status', 'equalto', 'open') | list | length %}
+                            {% if open_count %}
+                                <span class="badge bg-danger ms-1">{{ open_count }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary ms-1">0</span>
+                            {% endif %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
                         <button class="nav-link" id="markets-tab" data-bs-toggle="pill"
                                 data-bs-target="#markets-panel" type="button" role="tab">
                             Markets
@@ -64,13 +93,10 @@
                                 {% for req in pending_requests %}
                                 <div class="adviser-client-row d-flex align-items-center gap-3">
                                     <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
-                                         alt="{{ req['name'] }}"
-                                         class="client-pfp flex-shrink-0">
+                                         alt="{{ req['name'] }}" class="client-pfp flex-shrink-0">
                                     <div class="flex-grow-1 min-w-0">
                                         <div class="fw-semibold">{{ req['name'] }}</div>
-                                        <div class="text-muted small text-truncate">
-                                            {{ req['description'] or 'No description provided.' }}
-                                        </div>
+                                        <div class="text-muted small text-truncate">{{ req['description'] or 'No description provided.' }}</div>
                                     </div>
                                     <div class="d-flex gap-2 flex-shrink-0">
                                         <form method="post" action="{{ url_for('accept_request', customer_id=req['customer_id']) }}">
@@ -84,9 +110,7 @@
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <div class="text-center py-5 text-muted">
-                                <p class="mb-0">No pending requests at this time.</p>
-                            </div>
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No pending requests at this time.</p></div>
                         {% endif %}
                     </div>
 
@@ -97,31 +121,194 @@
                                 {% for client in clients %}
                                 <div class="adviser-client-row d-flex align-items-center gap-3">
                                     <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
-                                         alt="{{ client['name'] }}"
-                                         class="client-pfp flex-shrink-0">
+                                         alt="{{ client['name'] }}" class="client-pfp flex-shrink-0">
                                     <div class="flex-grow-1 min-w-0">
                                         <div class="fw-semibold">{{ client['name'] }}</div>
-                                        <div class="text-muted small text-truncate">
-                                            {{ client['description'] or 'No description provided.' }}
-                                        </div>
+                                        <div class="text-muted small text-truncate">{{ client['description'] or 'No description provided.' }}</div>
                                     </div>
-                                    <a href="{{ url_for('view_client_accounts', customer_id=client['customer_id']) }}"
-                                       class="btn btn-sm btn-outline-primary flex-shrink-0">View Accounts</a>
+                                    <div class="d-flex gap-2 flex-shrink-0">
+                                        <a href="{{ url_for('view_client_accounts', customer_id=client['customer_id']) }}"
+                                           class="btn btn-sm btn-outline-primary">View Accounts</a>
+                                        <a href="{{ url_for('export_client_transactions', customer_id=client['customer_id']) }}"
+                                           class="btn btn-sm btn-outline-success" title="Export transactions to Excel">
+                                            Export Excel
+                                        </a>
+                                    </div>
                                 </div>
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <div class="text-center py-5 text-muted">
-                                <p class="mb-0">No clients assigned yet. A manager will assign clients to you.</p>
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No clients assigned yet. A manager will assign clients to you.</p></div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Tasks panel -->
+                    <div class="tab-pane fade" id="tasks-panel" role="tabpanel">
+                        {% if tasks %}
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Priority</th>
+                                            <th>Task</th>
+                                            <th>Client</th>
+                                            <th>Created</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for task in tasks %}
+                                        <tr>
+                                            <td>
+                                                {% if task['priority'] == 1 %}
+                                                    <span class="badge bg-danger">High</span>
+                                                {% elif task['priority'] == 2 %}
+                                                    <span class="badge bg-warning text-dark">Medium</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Low</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="fw-medium">{{ task['title'] }}</div>
+                                                {% if task['description'] %}
+                                                    <div class="text-muted small">{{ task['description'][:80] }}{% if task['description']|length > 80 %}…{% endif %}</div>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ task['customer_name'] or '—' }}</td>
+                                            <td class="text-muted small text-nowrap">{{ task['created_at'][:10] if task['created_at'] else '—' }}</td>
+                                            <td class="text-end">
+                                                <form method="post" action="{{ url_for('complete_task', task_id=task['task_id']) }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success">Complete</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No outstanding tasks.</p></div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Consultations panel -->
+                    <div class="tab-pane fade" id="consultations-panel" role="tabpanel">
+                        {% if consultations %}
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Client</th>
+                                            <th>Title</th>
+                                            <th>Scheduled</th>
+                                            <th>Status</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for con in consultations %}
+                                        <tr>
+                                            <td class="fw-medium">{{ con['customer_name'] }}</td>
+                                            <td>
+                                                <div>{{ con['title'] }}</div>
+                                                {% if con['notes'] %}
+                                                    <div class="text-muted small">{{ con['notes'][:60] }}{% if con['notes']|length > 60 %}…{% endif %}</div>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-nowrap text-muted small">
+                                                {{ con['scheduled_at'][:16].replace('T', ' ') if con['scheduled_at'] else 'TBD' }}
+                                            </td>
+                                            <td>
+                                                {% if con['status'] == 'scheduled' %}
+                                                    <span class="badge bg-primary">Scheduled</span>
+                                                {% elif con['status'] == 'completed' %}
+                                                    <span class="badge bg-success">Completed</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Cancelled</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                {% if con['status'] == 'scheduled' %}
+                                                <div class="d-flex gap-1 justify-content-end">
+                                                    <form method="post" action="{{ url_for('update_consultation', consultation_id=con['consultation_id']) }}">
+                                                        <input type="hidden" name="status" value="completed">
+                                                        <button type="submit" class="btn btn-sm btn-outline-success">Done</button>
+                                                    </form>
+                                                    <form method="post" action="{{ url_for('update_consultation', consultation_id=con['consultation_id']) }}">
+                                                        <input type="hidden" name="status" value="cancelled">
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary">Cancel</button>
+                                                    </form>
+                                                </div>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No consultation records yet.</p></div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Support Tickets panel -->
+                    <div class="tab-pane fade" id="tickets-panel" role="tabpanel">
+                        {% if support_tickets %}
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Client</th>
+                                            <th>Subject</th>
+                                            <th>Submitted</th>
+                                            <th>Status</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for ticket in support_tickets %}
+                                        <tr>
+                                            <td>
+                                                {% if ticket['type'] == 'complaint' %}
+                                                    <span class="badge bg-danger">Complaint</span>
+                                                {% else %}
+                                                    <span class="badge bg-info text-dark">Help</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="fw-medium">{{ ticket['customer_name'] }}</td>
+                                            <td>
+                                                <div>{{ ticket['subject'] }}</div>
+                                                <div class="text-muted small">{{ ticket['message'][:60] }}{% if ticket['message']|length > 60 %}…{% endif %}</div>
+                                            </td>
+                                            <td class="text-muted small text-nowrap">{{ ticket['created_at'][:10] if ticket['created_at'] else '—' }}</td>
+                                            <td>
+                                                {% if ticket['status'] == 'open' %}
+                                                    <span class="badge bg-warning text-dark">Open</span>
+                                                {% else %}
+                                                    <span class="badge bg-success">Resolved</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                {% if ticket['status'] == 'open' %}
+                                                <form method="post" action="{{ url_for('resolve_ticket', ticket_id=ticket['ticket_id']) }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success">Resolve</button>
+                                                </form>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No support tickets from your clients.</p></div>
                         {% endif %}
                     </div>
 
                     <!-- Markets panel -->
                     <div class="tab-pane fade" id="markets-panel" role="tabpanel">
                         <div class="row gy-4">
-
-                            <!-- News feed -->
                             <div class="col-12">
                                 <div class="market-inner-card">
                                     <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
@@ -136,8 +323,7 @@
                                                 <div class="list-group-item market-news-item px-0 py-3">
                                                     <div class="d-flex justify-content-between align-items-start gap-3">
                                                         <div class="min-w-0">
-                                                            <a href="{{ item.url }}" target="_blank"
-                                                               class="fw-semibold text-decoration-none market-news-link">{{ item.title }}</a>
+                                                            <a href="{{ item.url }}" target="_blank" class="fw-semibold text-decoration-none market-news-link">{{ item.title }}</a>
                                                             <div class="text-muted small mt-1">{{ item.source }}</div>
                                                             <p class="mt-2 mb-0 text-muted small">{{ item.summary }}</p>
                                                         </div>
@@ -151,29 +337,20 @@
                                     {% endif %}
                                 </div>
                             </div>
-
-                            <!-- Recent chart -->
                             <div class="col-lg-6">
                                 <div class="market-inner-card">
                                     <h2 class="h6 mb-1">Recent Market Trend</h2>
                                     <p class="text-muted mb-3 small">{{ recent_trend.description }}</p>
-                                    <div class="chart-card">
-                                        <canvas id="recentMarketChart"></canvas>
-                                    </div>
+                                    <div class="chart-card"><canvas id="recentMarketChart"></canvas></div>
                                 </div>
                             </div>
-
-                            <!-- Historical chart -->
                             <div class="col-lg-6">
                                 <div class="market-inner-card">
                                     <h2 class="h6 mb-1">Historical Market Trend</h2>
                                     <p class="text-muted mb-3 small">{{ historical_trend.description }}</p>
-                                    <div class="chart-card">
-                                        <canvas id="historicalMarketChart"></canvas>
-                                    </div>
+                                    <div class="chart-card"><canvas id="historicalMarketChart"></canvas></div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
 
@@ -189,78 +366,27 @@
 <script>
     const recentData = {{ recent_trend | tojson }};
     const historicalData = {{ historical_trend | tojson }};
-
-    let recentChart = null;
-    let historicalChart = null;
+    let recentChart = null, historicalChart = null;
 
     function initMarketCharts() {
         if (recentChart) return;
-
         const recentCtx = document.getElementById('recentMarketChart');
         if (recentCtx) {
             recentChart = new Chart(recentCtx, {
                 type: 'line',
-                data: {
-                    labels: recentData.labels,
-                    datasets: [{
-                        label: 'Recent Index',
-                        data: recentData.values,
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37, 99, 235, 0.12)',
-                        fill: true,
-                        tension: 0.35,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#1d4ed8'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { mode: 'index', intersect: false }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#475569' } },
-                        y: { grid: { color: 'rgba(15, 23, 42, 0.08)' }, ticks: { color: '#475569' } }
-                    }
-                }
+                data: { labels: recentData.labels, datasets: [{ label: 'Recent Index', data: recentData.values, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.12)', fill: true, tension: 0.35, pointRadius: 4, pointBackgroundColor: '#1d4ed8' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { grid: { display: false }, ticks: { color: '#475569' } }, y: { grid: { color: 'rgba(15,23,42,0.08)' }, ticks: { color: '#475569' } } } }
             });
         }
-
         const historicalCtx = document.getElementById('historicalMarketChart');
         if (historicalCtx) {
             historicalChart = new Chart(historicalCtx, {
                 type: 'line',
-                data: {
-                    labels: historicalData.labels,
-                    datasets: [{
-                        label: '12-Month Trend',
-                        data: historicalData.values,
-                        borderColor: '#14b8a6',
-                        backgroundColor: 'rgba(20, 184, 166, 0.12)',
-                        fill: true,
-                        tension: 0.35,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#0d9488'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { mode: 'index', intersect: false }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#475569' } },
-                        y: { grid: { color: 'rgba(15, 23, 42, 0.08)' }, ticks: { color: '#475569' } }
-                    }
-                }
+                data: { labels: historicalData.labels, datasets: [{ label: '12-Month Trend', data: historicalData.values, borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,0.12)', fill: true, tension: 0.35, pointRadius: 4, pointBackgroundColor: '#0d9488' }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { grid: { display: false }, ticks: { color: '#475569' } }, y: { grid: { color: 'rgba(15,23,42,0.08)' }, ticks: { color: '#475569' } } } }
             });
         }
     }
-
     document.getElementById('markets-tab').addEventListener('shown.bs.tab', initMarketCharts);
 </script>
 {% endblock %}

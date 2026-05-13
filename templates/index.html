@@ -26,6 +26,16 @@
                             <h1 class="page-heading mb-2">My Accounts</h1>
                             <p class="text-muted mb-0">Create accounts, open them, and add transactions to track your money.</p>
                         </div>
+                        <div class="d-flex gap-2 flex-shrink-0">
+                            <button class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#supportModal">
+                                Support
+                            </button>
+                            {% if current_adviser %}
+                            <button class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#consultationModal">
+                                Book Consultation
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -140,4 +150,81 @@
         {% endif %}
     </div>
 </main>
+
+<!-- Support Ticket Modal -->
+<div class="modal fade" id="supportModal" tabindex="-1" aria-labelledby="supportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="supportModalLabel">Contact Support</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{{ url_for('submit_support_ticket') }}">
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Your message will be sent to your adviser and the management team.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="ticket_type" id="type-help" value="help" checked>
+                                <label class="form-check-label" for="type-help">Help Request</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="ticket_type" id="type-complaint" value="complaint">
+                                <label class="form-check-label" for="type-complaint">Complaint</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="support-subject" class="form-label">Subject</label>
+                        <input id="support-subject" name="subject" class="form-control" required placeholder="Brief summary">
+                    </div>
+                    <div class="mb-3">
+                        <label for="support-message" class="form-label">Message</label>
+                        <textarea id="support-message" name="message" class="form-control" rows="4" required placeholder="Describe your issue in detail"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Consultation Modal (only shown when adviser assigned) -->
+{% if current_adviser %}
+<div class="modal fade" id="consultationModal" tabindex="-1" aria-labelledby="consultationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="consultationModalLabel">Book a Consultation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{{ url_for('create_consultation') }}">
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Request a consultation with <strong>{{ current_adviser['name'] }}</strong>.</p>
+                    <div class="mb-3">
+                        <label for="consult-title" class="form-label">Title</label>
+                        <input id="consult-title" name="title" class="form-control" required placeholder="e.g. Investment review">
+                    </div>
+                    <div class="mb-3">
+                        <label for="consult-date" class="form-label">Preferred date &amp; time</label>
+                        <input id="consult-date" name="scheduled_at" type="datetime-local" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label for="consult-notes" class="form-label">Notes</label>
+                        <textarea id="consult-notes" name="notes" class="form-control" rows="3" placeholder="What would you like to discuss?"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-info text-white">Book</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

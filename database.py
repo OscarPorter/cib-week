@@ -114,7 +114,46 @@ def init_db():
                          FOREIGN KEY (team_id) REFERENCES teams(team_id),
                          FOREIGN KEY (adviser_id) REFERENCES advisers(adviser_id),
                          PRIMARY KEY (team_id, adviser_id) );
-            
+
+            CREATE TABLE IF NOT EXISTS support_tickets (
+                         ticket_id INTEGER PRIMARY KEY,
+                         customer_id INTEGER,
+                         type TEXT DEFAULT 'help',
+                         subject TEXT,
+                         message TEXT,
+                         status TEXT DEFAULT 'open',
+                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                         resolved_at DATETIME,
+                         FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
+
+            CREATE TABLE IF NOT EXISTS consultations (
+                         consultation_id INTEGER PRIMARY KEY,
+                         customer_id INTEGER,
+                         adviser_id INTEGER,
+                         title TEXT,
+                         notes TEXT,
+                         scheduled_at DATETIME,
+                         status TEXT DEFAULT 'scheduled',
+                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                         FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+                         FOREIGN KEY (adviser_id) REFERENCES advisers(adviser_id) );
+
+            CREATE TABLE IF NOT EXISTS adviser_tasks (
+                         task_id INTEGER PRIMARY KEY,
+                         adviser_id INTEGER,
+                         customer_id INTEGER,
+                         ticket_id INTEGER,
+                         title TEXT,
+                         description TEXT,
+                         priority INTEGER DEFAULT 2,
+                         status TEXT DEFAULT 'pending',
+                         due_date DATETIME,
+                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                         completed_at DATETIME,
+                         FOREIGN KEY (adviser_id) REFERENCES advisers(adviser_id),
+                         FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+                         FOREIGN KEY (ticket_id) REFERENCES support_tickets(ticket_id) );
+
             -- Insert default categories if not exist
             INSERT OR IGNORE INTO categories (name, colour, description) VALUES
                 ('Food', '#FF6B6B', 'Food and dining expenses'),
@@ -135,6 +174,8 @@ def migrate_db():
         "ALTER TABLE customers ADD COLUMN description TEXT",
         "ALTER TABLE accounts ADD COLUMN is_private BOOL DEFAULT 0",
         "ALTER TABLE user_assignments ADD COLUMN status TEXT DEFAULT 'pending'",
+        "ALTER TABLE transactions ADD COLUMN merchant TEXT",
+        "ALTER TABLE transactions ADD COLUMN payment_method TEXT",
     ]
     with get_db() as db:
         for sql in migrations:
