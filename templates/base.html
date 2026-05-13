@@ -3,37 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Personal Finance Management System{% endblock %}</title>
+    <title>{% block title %}DWK Finance{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="bg-soft">
-    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">DWK Personal Finance Management</a>
-            <div class="d-flex align-items-center">
-                {% if session.get('username') %}
-                    <span class="me-3 text-muted">Signed in as <strong>{{ session.get('username') }}</strong></span>
-                    {% if session.get('role') %}
-                        <span class="badge bg-info text-dark text-uppercase me-2">{{ session.get('role') }}</span>
-                    {% endif %}
-                    {% if session.get('is_manager') %}
-                        <span class="badge bg-success me-3">Manager</span>
-                    {% endif %}
-                    {% if session.get('role') == 'customer' %}
-                        <a href="{{ url_for('browse_advisers') }}" class="btn btn-outline-primary btn-sm me-2">Request Adviser</a>
-                    {% endif %}
-                    {% if session.get('role') == 'adviser' and session.get('is_manager') %}
-                        <a href="{{ url_for('manager_dashboard') }}" class="btn btn-outline-primary btn-sm me-2">Manager Dashboard</a>
-                    {% endif %}
-                    <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary btn-sm me-2">Settings</a>
-                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
-                {% endif %}
-            </div>
-        </div>
+<body class="{% if session.get('username') %}app-layout{% endif %}">
+
+{% if session.get('username') %}
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <img src="{{ url_for('static', filename='VECTURA.png') }}" alt="DWK">
+    </div>
+
+    <nav>
+        <div class="sidebar-section-label">Overview</div>
+        {% if session.get('role') == 'customer' %}
+            <a href="{{ url_for('index') }}" class="sidebar-nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+                <span class="nav-dot"></span>Dashboard
+            </a>
+            <a href="{{ url_for('browse_advisers') }}" class="sidebar-nav-item {% if request.endpoint == 'browse_advisers' %}active{% endif %}">
+                <span class="nav-dot"></span>Browse Advisers
+            </a>
+        {% elif session.get('role') == 'adviser' %}
+            <a href="{{ url_for('adviser_dashboard') }}" class="sidebar-nav-item {% if request.endpoint == 'adviser_dashboard' %}active{% endif %}">
+                <span class="nav-dot"></span>Dashboard
+            </a>
+            {% if session.get('is_manager') %}
+                <a href="{{ url_for('manager_dashboard') }}" class="sidebar-nav-item {% if request.endpoint == 'manager_dashboard' %}active{% endif %}">
+                    <span class="nav-dot"></span>Manager View
+                </a>
+            {% endif %}
+        {% endif %}
+
+        <div class="sidebar-section-label">Account</div>
+        <a href="{{ url_for('settings') }}" class="sidebar-nav-item {% if request.endpoint == 'settings' %}active{% endif %}">
+            <span class="nav-dot"></span>Settings
+        </a>
+        <a href="{{ url_for('logout') }}" class="sidebar-nav-item">
+            <span class="nav-dot"></span>Sign Out
+        </a>
     </nav>
-    {% block body %}{% endblock %}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    {% block scripts %}{% endblock %}
+
+    <div class="sidebar-bottom">
+        <div class="sidebar-user-name">{{ session.get('username') }}</div>
+        <div class="sidebar-user-info">
+            {{ session.get('role', '').title() }}{% if session.get('is_manager') %} &middot; Manager{% endif %}
+        </div>
+    </div>
+</aside>
+
+<div class="app-content">
+    <div class="app-topbar">
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <span class="app-topbar-role">
+                {{ session.get('role', '').title() }}{% if session.get('is_manager') %} &middot; Manager{% endif %}
+            </span>
+            <span class="app-topbar-username">{{ session.get('username') }}</span>
+        </div>
+    </div>
+{% endif %}
+
+{% block body %}{% endblock %}
+
+{% if session.get('username') %}
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>
