@@ -6,8 +6,13 @@ Then start the app by running:
 
 python app.py
 
+Add test users by running the app and closing it (to ensure the database has been created) and then run:
+
+python seed_test_users.py
+
 Logins
 ------
+
 Manager : sarah@dwk.com        / mgr123
 Advisers: james@dwk.com        / adv123
           emily@dwk.com        / adv456

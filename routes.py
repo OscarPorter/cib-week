@@ -12,6 +12,8 @@ import math
 import random
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.chart import BarChart, LineChart, Reference
+from collections import defaultdict
 
 def no_cache(f):
     @wraps(f)
@@ -98,6 +100,114 @@ def _get_market_data():
         'description': '12-month FTSE 100 index performance.',
     }
     return recent_trend, historical_trend, news
+
+
+def build_transactions_workbook(rows, customer_name):
+    wb = openpyxl.Workbook()
+
+    ws = wb.active
+    ws.title = 'Transactions'
+
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill('solid', fgColor='2563EB')
+    headers = ['Date', 'Account', 'Transaction Name', 'Category', 'Merchant', 'Payment Method', 'Description', 'Amount (£)']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+
+    for row_idx, row in enumerate(rows, 2):
+        ws.cell(row=row_idx, column=1, value=str(row['transaction_date'])[:10])
+        ws.cell(row=row_idx, column=2, value=row['account_name'])
+        ws.cell(row=row_idx, column=3, value=row['name'])
+        ws.cell(row=row_idx, column=4, value=row['category'] or '')
+        ws.cell(row=row_idx, column=5, value=row['merchant'] or '')
+        ws.cell(row=row_idx, column=6, value=row['payment_method'] or '')
+        ws.cell(row=row_idx, column=7, value=row['description'] or '')
+        amount_cell = ws.cell(row=row_idx, column=8, value=row['amount'] or 0)
+        if (row['amount'] or 0) < 0:
+            amount_cell.font = Font(color='CC0000')
+        else:
+            amount_cell.font = Font(color='006600')
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value or '')) for c in col), default=8)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+
+    ws2 = wb.create_sheet('Summary')
+
+    cat_totals = defaultdict(float)
+    month_totals = defaultdict(float)
+    for row in rows:
+        amt = row['amount'] or 0
+        if amt < 0:
+            cat = row['category'] or 'Uncategorised'
+            cat_totals[cat] += abs(amt)
+            month_totals[str(row['transaction_date'])[:7]] += abs(amt)
+
+    sorted_cats = sorted(cat_totals.items(), key=lambda x: x[1], reverse=True)
+    sorted_months = sorted(month_totals.items())
+
+    title_cell = ws2.cell(row=1, column=1, value=f'Spending Summary — {customer_name}')
+    title_cell.font = Font(bold=True, size=14)
+
+    ws2.cell(row=3, column=1, value='Spending by Category').font = Font(bold=True, size=11)
+    for col, label in enumerate(['Category', 'Total Spent (£)'], 1):
+        cell = ws2.cell(row=4, column=col, value=label)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill('solid', fgColor='2563EB')
+        cell.alignment = Alignment(horizontal='center')
+
+    for i, (cat, total) in enumerate(sorted_cats, 1):
+        ws2.cell(row=4 + i, column=1, value=cat)
+        ws2.cell(row=4 + i, column=2, value=round(total, 2))
+
+    cat_end_row = 4 + len(sorted_cats)
+
+    if sorted_cats:
+        bar = BarChart()
+        bar.type = 'col'
+        bar.title = 'Spending by Category'
+        bar.y_axis.title = 'Amount (£)'
+        bar.style = 10
+        bar.width = 22
+        bar.height = 14
+        bar.add_data(Reference(ws2, min_col=2, min_row=4, max_row=cat_end_row), titles_from_data=True)
+        bar.set_categories(Reference(ws2, min_col=1, min_row=5, max_row=cat_end_row))
+        ws2.add_chart(bar, 'D3')
+
+    month_start = cat_end_row + 3
+    ws2.cell(row=month_start, column=1, value='Spending by Month').font = Font(bold=True, size=11)
+    month_header = month_start + 1
+    for col, label in enumerate(['Month', 'Total Spent (£)'], 1):
+        cell = ws2.cell(row=month_header, column=col, value=label)
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill('solid', fgColor='2563EB')
+        cell.alignment = Alignment(horizontal='center')
+
+    for i, (month, total) in enumerate(sorted_months, 1):
+        ws2.cell(row=month_header + i, column=1, value=month)
+        ws2.cell(row=month_header + i, column=2, value=round(total, 2))
+
+    month_end_row = month_header + len(sorted_months)
+
+    if sorted_months:
+        line = LineChart()
+        line.title = 'Monthly Spending'
+        line.y_axis.title = 'Amount (£)'
+        line.x_axis.title = 'Month'
+        line.style = 10
+        line.width = 22
+        line.height = 14
+        line.add_data(Reference(ws2, min_col=2, min_row=month_header, max_row=month_end_row), titles_from_data=True)
+        line.set_categories(Reference(ws2, min_col=1, min_row=month_header + 1, max_row=month_end_row))
+        ws2.add_chart(line, f'D{month_start}')
+
+    ws2.column_dimensions['A'].width = 22
+    ws2.column_dimensions['B'].width = 18
+
+    return wb
 
 
 def register_routes(app):
@@ -1065,37 +1175,34 @@ def register_routes(app):
             ORDER BY t.transaction_date DESC
         ''', (customer_id,)).fetchall()
 
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = 'Transactions'
+        wb = build_transactions_workbook(rows, customer['name'])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        filename = f"{customer['name'].replace(' ', '_')}_transactions.xlsx"
+        return send_file(buf, as_attachment=True, download_name=filename,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
-        header_font = Font(bold=True, color='FFFFFF')
-        header_fill = PatternFill('solid', fgColor='2563EB')
-        headers = ['Date', 'Account', 'Transaction Name', 'Category', 'Merchant', 'Payment Method', 'Description', 'Amount (£)']
-        for col, h in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=h)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = Alignment(horizontal='center')
+    @app.route('/export/transactions')
+    @login_required
+    @no_cache
+    def export_my_transactions():
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+        db = get_db()
+        customer_id = session['user_id']
+        customer = db.execute('SELECT name FROM customers WHERE customer_id=?', (customer_id,)).fetchone()
+        rows = db.execute('''
+            SELECT a.name AS account_name, t.transaction_date, t.name, cat.name AS category,
+                   t.merchant, t.payment_method, t.description, t.amount
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.account_id
+            LEFT JOIN categories cat ON t.category_id = cat.category_id
+            WHERE a.customer_id = ?
+            ORDER BY t.transaction_date DESC
+        ''', (customer_id,)).fetchall()
 
-        for row_idx, row in enumerate(rows, 2):
-            ws.cell(row=row_idx, column=1, value=str(row['transaction_date'])[:10])
-            ws.cell(row=row_idx, column=2, value=row['account_name'])
-            ws.cell(row=row_idx, column=3, value=row['name'])
-            ws.cell(row=row_idx, column=4, value=row['category'] or '')
-            ws.cell(row=row_idx, column=5, value=row['merchant'] or '')
-            ws.cell(row=row_idx, column=6, value=row['payment_method'] or '')
-            ws.cell(row=row_idx, column=7, value=row['description'] or '')
-            amount_cell = ws.cell(row=row_idx, column=8, value=row['amount'] or 0)
-            if (row['amount'] or 0) < 0:
-                amount_cell.font = Font(color='CC0000')
-            else:
-                amount_cell.font = Font(color='006600')
-
-        for col in ws.columns:
-            max_len = max((len(str(c.value or '')) for c in col), default=8)
-            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
-
+        wb = build_transactions_workbook(rows, customer['name'])
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
