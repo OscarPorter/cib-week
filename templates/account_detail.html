@@ -223,10 +223,8 @@
                                     <th>Date</th>
                                     <th>Name</th>
                                     <th>Category</th>
-                                    <th>Merchant</th>
-                                    <th>Method</th>
                                     <th class="text-end">Amount</th>
-                                    {% if not is_adviser_view %}<th class="text-end">Actions</th>{% endif %}
+                                    {% if not is_adviser_view %}<th></th>{% endif %}
                                 </tr>
                             </thead>
                             <tbody>
@@ -242,29 +240,37 @@
                                                 </span>
                                             {% else %}—{% endif %}
                                         </td>
-                                        <td>{{ transaction['merchant'] or '—' }}</td>
-                                        <td>{{ transaction['payment_method'] or '—' }}</td>
                                         <td class="text-end {% if (transaction['amount'] or 0) < 0 %}text-danger{% else %}text-success{% endif %}">
                                             £{{ '%.2f'|format(transaction['amount'] or 0) }}
                                         </td>
                                         {% if not is_adviser_view %}
-                                        <td class="text-end text-nowrap">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary me-1"
-                                                data-bs-toggle="modal" data-bs-target="#editModal"
-                                                data-tid="{{ transaction['transaction_id'] }}"
-                                                data-name="{{ transaction['name'] }}"
-                                                data-category="{{ transaction['category_name'] or '' }}"
-                                                data-merchant="{{ transaction['merchant'] or '' }}"
-                                                data-method="{{ transaction['payment_method'] or '' }}"
-                                                data-amount="{{ transaction['amount'] or 0 }}"
-                                                data-date="{{ transaction['transaction_date'][:10] if transaction['transaction_date'] else today }}"
-                                                data-description="{{ transaction['description'] or '' }}">
-                                                Edit
-                                            </button>
-                                            <form method="post" class="d-inline"
-                                                  action="{{ url_for('delete_transaction', account_id=account['account_id'], transaction_id=transaction['transaction_id']) }}">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
-                                            </form>
+                                        <td class="text-end">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false">&#8942;</button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li>
+                                                        <button type="button" class="dropdown-item"
+                                                            data-bs-toggle="modal" data-bs-target="#editModal"
+                                                            data-tid="{{ transaction['transaction_id'] }}"
+                                                            data-name="{{ transaction['name'] }}"
+                                                            data-category="{{ transaction['category_name'] or '' }}"
+                                                            data-merchant="{{ transaction['merchant'] or '' }}"
+                                                            data-method="{{ transaction['payment_method'] or '' }}"
+                                                            data-amount="{{ transaction['amount'] or 0 }}"
+                                                            data-date="{{ transaction['transaction_date'][:10] if transaction['transaction_date'] else today }}"
+                                                            data-description="{{ transaction['description'] or '' }}">
+                                                            Edit
+                                                        </button>
+                                                    </li>
+                                                    <li>
+                                                        <form method="post"
+                                                              action="{{ url_for('delete_transaction', account_id=account['account_id'], transaction_id=transaction['transaction_id']) }}"
+                                                              onsubmit="return confirm('Delete this transaction? This cannot be undone.');">
+                                                            <button type="submit" class="dropdown-item text-danger">Delete</button>
+                                                        </form>
+                                                    </li>
+                                                </ul>
+                                            </div>
                                         </td>
                                         {% endif %}
                                     </tr>
