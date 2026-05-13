@@ -7,6 +7,7 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def init_db():
     with get_db() as db:
         db.executescript('''
             CREATE TABLE IF NOT EXISTS customers (
