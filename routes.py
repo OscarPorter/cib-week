@@ -928,6 +928,46 @@ def register_routes(app):
         flash('Client reassigned successfully.', 'success')
         return redirect(url_for('manager_dashboard'))
 
+    @app.route('/register', methods=['GET', 'POST'])
+    def register():
+        if session.get('username'):
+            return redirect(url_for('index'))
+
+        if request.method == 'POST':
+            name     = request.form.get('name', '').strip()
+            email    = request.form.get('email', '').strip().lower()
+            password = request.form.get('password', '')
+            confirm  = request.form.get('confirm_password', '')
+
+            if not name or not email or not password:
+                flash('All fields are required.', 'danger')
+                return render_template('register.html', form_data=request.form)
+
+            if password != confirm:
+                flash('Passwords do not match.', 'danger')
+                return render_template('register.html', form_data=request.form)
+
+            if len(password) < 8:
+                flash('Password must be at least 8 characters.', 'danger')
+                return render_template('register.html', form_data=request.form)
+
+            db = get_db()
+            existing = db.execute('SELECT 1 FROM customers WHERE email = ?', (email,)).fetchone()
+            if existing:
+                flash('An account with that email already exists.', 'danger')
+                return render_template('register.html', form_data=request.form)
+
+            db.execute(
+                'INSERT INTO customers (name, email, password, currency) VALUES (?, ?, ?, ?)',
+                (name, email, generate_password_hash(password), 'GBP')
+            )
+            db.commit()
+
+            flash('Account created successfully. Please sign in.', 'success')
+            return redirect(url_for('login'))
+
+        return render_template('register.html')
+
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         if request.method == 'POST':
