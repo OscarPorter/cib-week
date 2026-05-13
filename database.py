@@ -97,11 +97,16 @@ def init_db():
             
             CREATE TABLE IF NOT EXISTS user_assignments (
                          adviser_id INTEGER,
-                         customer_id INTEGER,
-                         status TEXT DEFAULT 'pending',
+                         customer_id INTEGER UNIQUE,
+                         status TEXT DEFAULT 'accepted',
                          FOREIGN KEY (adviser_id) REFERENCES advisers(adviser_id),
                          FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
                          PRIMARY KEY (adviser_id, customer_id) );
+
+            CREATE TABLE IF NOT EXISTS customer_requests (
+                         request_id INTEGER PRIMARY KEY,
+                         customer_id INTEGER UNIQUE,
+                         FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
             
             CREATE TABLE IF NOT EXISTS team_members (
                          team_id INTEGER,

@@ -55,15 +55,19 @@ def register_routes(app):
                 (session['user_id'],)
             ).fetchall()
             current_adviser = db.execute('''
-                SELECT a.adviser_id, a.name, ua.status
+                SELECT a.adviser_id, a.name
                 FROM user_assignments ua
                 JOIN advisers a ON ua.adviser_id = a.adviser_id
                 WHERE ua.customer_id = ?
             ''', (session['user_id'],)).fetchone()
-            return render_template('index.html', accounts=accounts, current_adviser=current_adviser)
-        if session.get('role') == 'adviser' and session.get('is_manager'):
-            return redirect(url_for('manager_dashboard'))
+            pending_request = db.execute(
+                'SELECT request_id FROM customer_requests WHERE customer_id = ?',
+                (session['user_id'],)
+            ).fetchone()
+            return render_template('index.html', accounts=accounts, current_adviser=current_adviser, pending_request=pending_request)
         if session.get('role') == 'adviser':
+            if session.get('is_manager'):
+                return redirect(url_for('manager_dashboard'))
             return redirect(url_for('adviser_dashboard'))
         return render_template('index.html')
 
@@ -311,67 +315,54 @@ def register_routes(app):
         if session.get('role') != 'customer':
             return redirect(url_for('index'))
         db = get_db()
-        advisers = db.execute('SELECT * FROM advisers WHERE is_manager = 0 ORDER BY name').fetchall()
-        assignments = db.execute(
-            'SELECT adviser_id, status FROM user_assignments WHERE customer_id = ?',
-            (session['user_id'],)
-        ).fetchall()
-        assignment_map = {a['adviser_id']: a['status'] for a in assignments}
-        has_assignment = len(assignment_map) > 0
-        return render_template('advisers.html', advisers=advisers, assignment_map=assignment_map, has_assignment=has_assignment)
+        existing_assignment = db.execute(
+            'SELECT 1 FROM user_assignments WHERE customer_id = ?', (session['user_id'],)
+        ).fetchone()
+        if existing_assignment:
+            return redirect(url_for('index'))
+        pending = db.execute(
+            'SELECT request_id FROM customer_requests WHERE customer_id = ?', (session['user_id'],)
+        ).fetchone()
+        return render_template('advisers.html', pending=pending)
 
-    @app.route('/advisers/<int:adviser_id>/request', methods=['POST'])
+    @app.route('/adviser/request', methods=['POST'])
     @login_required
     @no_cache
-    def request_adviser(adviser_id):
+    def request_adviser():
         if session.get('role') != 'customer':
             return redirect(url_for('index'))
         db = get_db()
-        adviser = db.execute('SELECT * FROM advisers WHERE adviser_id = ? AND is_manager = 0', (adviser_id,)).fetchone()
-        if not adviser:
-            flash('Adviser not found.', 'warning')
+        if db.execute('SELECT 1 FROM user_assignments WHERE customer_id = ?', (session['user_id'],)).fetchone():
+            flash('You already have an adviser assigned.', 'warning')
+            return redirect(url_for('index'))
+        if db.execute('SELECT 1 FROM customer_requests WHERE customer_id = ?', (session['user_id'],)).fetchone():
+            flash('You already have a pending request.', 'warning')
             return redirect(url_for('browse_advisers'))
-        any_assignment = db.execute(
-            'SELECT status FROM user_assignments WHERE customer_id = ?',
-            (session['user_id'],)
-        ).fetchone()
-        if any_assignment:
-            flash('You already have an adviser. Remove them before requesting a new one.', 'warning')
-            return redirect(url_for('browse_advisers'))
-        db.execute(
-            "INSERT INTO user_assignments (adviser_id, customer_id, status) VALUES (?, ?, 'pending')",
-            (adviser_id, session['user_id'])
-        )
+        db.execute('INSERT INTO customer_requests (customer_id) VALUES (?)', (session['user_id'],))
         db.commit()
-        flash(f'Request sent to {adviser["name"]}.', 'success')
+        flash('Your request has been submitted. A manager will assign you an adviser shortly.', 'success')
         return redirect(url_for('browse_advisers'))
 
-    @app.route('/advisers/<int:adviser_id>/cancel-request', methods=['POST'])
+    @app.route('/adviser/cancel-request', methods=['POST'])
     @login_required
     @no_cache
-    def cancel_adviser_request(adviser_id):
+    def cancel_adviser_request():
         if session.get('role') != 'customer':
             return redirect(url_for('index'))
         db = get_db()
-        db.execute(
-            "DELETE FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'pending'",
-            (adviser_id, session['user_id'])
-        )
+        db.execute('DELETE FROM customer_requests WHERE customer_id = ?', (session['user_id'],))
         db.commit()
         flash('Request cancelled.', 'info')
         return redirect(url_for('browse_advisers'))
 
-    @app.route('/advisers/<int:adviser_id>/remove', methods=['POST'])
+    @app.route('/adviser/remove', methods=['POST'])
     @login_required
     @no_cache
-    def remove_adviser(adviser_id):
+    def remove_adviser():
         if session.get('role') != 'customer':
             return redirect(url_for('index'))
         db = get_db()
-        db.execute(
-            "DELETE FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'accepted'",
-            (adviser_id, session['user_id'])
-        )
+        db.execute('DELETE FROM user_assignments WHERE customer_id = ?', (session['user_id'],))
         db.commit()
         flash('Adviser removed from your account.', 'info')
         return redirect(url_for('index'))
@@ -383,83 +374,14 @@ def register_routes(app):
         if session.get('role') != 'adviser' or session.get('is_manager'):
             return redirect(url_for('index'))
         db = get_db()
-        pending_requests = db.execute('''
-            SELECT c.customer_id, c.name, c.email, c.description
-            FROM user_assignments ua
-            JOIN customers c ON ua.customer_id = c.customer_id
-            WHERE ua.adviser_id = ? AND ua.status = 'pending'
-            ORDER BY c.name
-        ''', (session['user_id'],)).fetchall()
         clients = db.execute('''
             SELECT c.customer_id, c.name, c.email, c.description
             FROM user_assignments ua
             JOIN customers c ON ua.customer_id = c.customer_id
-            WHERE ua.adviser_id = ? AND ua.status = 'accepted'
+            WHERE ua.adviser_id = ?
             ORDER BY c.name
         ''', (session['user_id'],)).fetchall()
-
-        news = [
-            {
-                'title': 'Global markets rally after dovish guidance',
-                'source': 'Financial Times',
-                'url': 'https://www.ft.com',
-                'summary': 'Investors reacted positively to central bank signals that suggest lower rate risk ahead this quarter.'
-            },
-            {
-                'title': 'Tech earnings beat expectations',
-                'source': 'Reuters',
-                'url': 'https://www.reuters.com',
-                'summary': 'Technology stocks saw gains as earnings reports beat analyst forecasts, lifting broader market sentiment.'
-            },
-            {
-                'title': 'Oil prices ease amid weak demand outlook',
-                'source': 'Bloomberg',
-                'url': 'https://www.bloomberg.com',
-                'summary': 'Energy markets remain cautious as demand forecasts for the summer season were revised lower.'
-            }
-        ]
-
-        today = datetime.utcnow().date()
-        recent_labels = []
-        recent_values = []
-        current_value = 4300.0
-        date_cursor = today
-        while len(recent_labels) < 5:
-            if date_cursor.weekday() < 5:
-                recent_labels.append(date_cursor.strftime('%b %d'))
-                recent_values.append(round(current_value, 2))
-                current_value *= 1 + (0.0018 if len(recent_values) % 2 == 0 else 0.0011)
-            date_cursor -= timedelta(days=1)
-        recent_labels.reverse()
-        recent_values.reverse()
-
-        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        histories = []
-        base_value = 3800.0
-        for month_index in range(today.month):
-            growth_rate = 0.017 + month_index * 0.001
-            histories.append(round(base_value * (1 + growth_rate * month_index), 2))
-
-        historical_trend = {
-            'labels': month_names[: today.month],
-            'values': histories,
-            'description': 'Year-to-date index levels for the current fiscal year.'
-        }
-
-        recent_trend = {
-            'labels': recent_labels,
-            'values': recent_values,
-            'description': 'Recent 5 trading-day market movement for a representative benchmark index.'
-        }
-
-        return render_template(
-            'adviser_dashboard.html',
-            pending_requests=pending_requests,
-            clients=clients,
-            news=news,
-            recent_trend=json.dumps(recent_trend),
-            historical_trend=json.dumps(historical_trend)
-        )
+        return render_template('adviser_dashboard.html', clients=clients)
 
     @app.route('/manager/dashboard')
     @login_required
@@ -468,45 +390,68 @@ def register_routes(app):
         if session.get('role') != 'adviser' or not session.get('is_manager'):
             return redirect(url_for('index'))
         db = get_db()
-        advisers = db.execute('''
-            SELECT a.adviser_id, a.name, a.email, COUNT(ua.customer_id) AS customer_count
-            FROM advisers a
-            LEFT JOIN user_assignments ua ON a.adviser_id = ua.adviser_id AND ua.status = 'accepted'
-            WHERE a.is_manager = 0
-            GROUP BY a.adviser_id
-            ORDER BY customer_count DESC, a.name
+        pending_requests = db.execute('''
+            SELECT c.customer_id, c.name, c.description
+            FROM customer_requests cr
+            JOIN customers c ON cr.customer_id = c.customer_id
+            ORDER BY c.name
         ''').fetchall()
-        return render_template('manager_dashboard.html', advisers=advisers)
+        advisers = db.execute(
+            'SELECT adviser_id, name, description FROM advisers WHERE is_manager = 0 ORDER BY name'
+        ).fetchall()
+        assignments = db.execute('''
+            SELECT c.name AS customer_name, a.name AS adviser_name, c.customer_id, a.adviser_id
+            FROM user_assignments ua
+            JOIN customers c ON ua.customer_id = c.customer_id
+            JOIN advisers a ON ua.adviser_id = a.adviser_id
+            ORDER BY c.name
+        ''').fetchall()
+        return render_template('manager_dashboard.html',
+                               pending_requests=pending_requests,
+                               advisers=advisers,
+                               assignments=assignments)
 
-    @app.route('/adviser/requests/<int:customer_id>/accept', methods=['POST'])
+    @app.route('/manager/assign/<int:customer_id>', methods=['POST'])
     @login_required
     @no_cache
-    def accept_request(customer_id):
-        if session.get('role') != 'adviser' or session.get('is_manager'):
+    def assign_adviser(customer_id):
+        if session.get('role') != 'adviser' or not session.get('is_manager'):
             return redirect(url_for('index'))
+        adviser_id = request.form.get('adviser_id', type=int)
+        if not adviser_id:
+            flash('Please select an adviser.', 'warning')
+            return redirect(url_for('manager_dashboard'))
         db = get_db()
+        adviser = db.execute('SELECT * FROM advisers WHERE adviser_id = ? AND is_manager = 0', (adviser_id,)).fetchone()
+        if not adviser:
+            flash('Adviser not found.', 'warning')
+            return redirect(url_for('manager_dashboard'))
+        if not db.execute('SELECT 1 FROM customer_requests WHERE customer_id = ?', (customer_id,)).fetchone():
+            flash('No pending request from this customer.', 'warning')
+            return redirect(url_for('manager_dashboard'))
+        if db.execute('SELECT 1 FROM user_assignments WHERE customer_id = ?', (customer_id,)).fetchone():
+            flash('This customer already has an adviser assigned.', 'warning')
+            return redirect(url_for('manager_dashboard'))
         db.execute(
-            "UPDATE user_assignments SET status = 'accepted' WHERE adviser_id = ? AND customer_id = ? AND status = 'pending'",
-            (session['user_id'], customer_id)
+            "INSERT INTO user_assignments (adviser_id, customer_id, status) VALUES (?, ?, 'accepted')",
+            (adviser_id, customer_id)
         )
+        db.execute('DELETE FROM customer_requests WHERE customer_id = ?', (customer_id,))
         db.commit()
-        flash('Client request accepted.', 'success')
-        return redirect(url_for('adviser_dashboard'))
+        flash(f'Adviser assigned to {db.execute("SELECT name FROM customers WHERE customer_id = ?", (customer_id,)).fetchone()["name"]}.', 'success')
+        return redirect(url_for('manager_dashboard'))
 
-    @app.route('/adviser/requests/<int:customer_id>/decline', methods=['POST'])
+    @app.route('/manager/unassign/<int:customer_id>', methods=['POST'])
     @login_required
     @no_cache
-    def decline_request(customer_id):
-        if session.get('role') != 'adviser' or session.get('is_manager'):
+    def unassign_adviser(customer_id):
+        if session.get('role') != 'adviser' or not session.get('is_manager'):
             return redirect(url_for('index'))
         db = get_db()
-        db.execute(
-            "DELETE FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'pending'",
-            (session['user_id'], customer_id)
-        )
+        db.execute('DELETE FROM user_assignments WHERE customer_id = ?', (customer_id,))
         db.commit()
-        flash('Request declined.', 'info')
-        return redirect(url_for('adviser_dashboard'))
+        flash('Adviser unassigned.', 'info')
+        return redirect(url_for('manager_dashboard'))
 
     @app.route('/adviser/clients/<int:customer_id>')
     @login_required

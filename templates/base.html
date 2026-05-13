@@ -22,7 +22,10 @@
                         <a href="{{ url_for('manager_dashboard') }}" class="btn btn-outline-primary btn-sm me-2">Manager Dashboard</a>
                     {% endif %}
                     {% if session.get('role') == 'customer' %}
-                        <a href="{{ url_for('browse_advisers') }}" class="btn btn-outline-primary btn-sm me-2">Browse Advisers</a>
+                        <a href="{{ url_for('browse_advisers') }}" class="btn btn-outline-primary btn-sm me-2">Request Adviser</a>
+                    {% endif %}
+                    {% if session.get('role') == 'adviser' and session.get('is_manager') %}
+                        <a href="{{ url_for('manager_dashboard') }}" class="btn btn-outline-primary btn-sm me-2">Manager Dashboard</a>
                     {% endif %}
                     <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary btn-sm me-2">Settings</a>
                     <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
