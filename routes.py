@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, session, flash, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 from database import get_db
 from functools import wraps
 import pyotp
@@ -532,7 +532,7 @@ def register_routes(app):
 
                 session.update(pending_data)
                 if role == 'adviser' and pending_data['is_manager']:
-                    flash('Welcome manager. Your adviser account has is_manager access.', 'success')
+                    flash('Welcome, you are signed into a manager account.', 'success')
                 return redirect(url_for('index'))
 
             flash('Invalid email or password. Please try again.', 'danger')
