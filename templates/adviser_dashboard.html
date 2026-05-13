@@ -21,41 +21,246 @@
         <div class="col-12">
             <div class="card card-surface p-4">
                 <h1 class="page-heading mb-2">Adviser Dashboard</h1>
-                <p class="text-muted mb-0">View and manage your assigned clients.</p>
+                <p class="text-muted mb-0">Manage your client requests, view assigned clients, and monitor market activity.</p>
             </div>
         </div>
 
         <div class="col-12">
             <div class="card card-surface p-4">
-                <h2 class="h5 mb-3">
-                    My Clients
-                    <span class="badge bg-secondary ms-1">{{ clients|length }}</span>
-                </h2>
-                {% if clients %}
-                    <div class="d-flex flex-column gap-3">
-                        {% for client in clients %}
-                        <div class="adviser-client-row d-flex align-items-center gap-3">
-                            <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
-                                 alt="{{ client['name'] }}"
-                                 class="client-pfp flex-shrink-0">
-                            <div class="flex-grow-1 min-w-0">
-                                <div class="fw-semibold">{{ client['name'] }}</div>
-                                <div class="text-muted small text-truncate">
-                                    {{ client['description'] or 'No description provided.' }}
+                <!-- Tab navigation -->
+                <ul class="nav nav-pills mb-4" id="adviserTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="requests-tab" data-bs-toggle="pill"
+                                data-bs-target="#requests-panel" type="button" role="tab">
+                            Requests
+                            {% if pending_requests %}
+                                <span class="badge bg-danger ms-1">{{ pending_requests|length }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary ms-1">0</span>
+                            {% endif %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="clients-tab" data-bs-toggle="pill"
+                                data-bs-target="#clients-panel" type="button" role="tab">
+                            Clients
+                            <span class="badge bg-secondary ms-1">{{ clients|length }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="markets-tab" data-bs-toggle="pill"
+                                data-bs-target="#markets-panel" type="button" role="tab">
+                            Markets
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="adviserTabContent">
+
+                    <!-- Requests panel -->
+                    <div class="tab-pane fade show active" id="requests-panel" role="tabpanel">
+                        {% if pending_requests %}
+                            <div class="d-flex flex-column gap-3">
+                                {% for req in pending_requests %}
+                                <div class="adviser-client-row d-flex align-items-center gap-3">
+                                    <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
+                                         alt="{{ req['name'] }}"
+                                         class="client-pfp flex-shrink-0">
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="fw-semibold">{{ req['name'] }}</div>
+                                        <div class="text-muted small text-truncate">
+                                            {{ req['description'] or 'No description provided.' }}
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2 flex-shrink-0">
+                                        <form method="post" action="{{ url_for('accept_request', customer_id=req['customer_id']) }}">
+                                            <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                                        </form>
+                                        <form method="post" action="{{ url_for('decline_request', customer_id=req['customer_id']) }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Decline</button>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted">
+                                <p class="mb-0">No pending requests at this time.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Clients panel -->
+                    <div class="tab-pane fade" id="clients-panel" role="tabpanel">
+                        {% if clients %}
+                            <div class="d-flex flex-column gap-3">
+                                {% for client in clients %}
+                                <div class="adviser-client-row d-flex align-items-center gap-3">
+                                    <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
+                                         alt="{{ client['name'] }}"
+                                         class="client-pfp flex-shrink-0">
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="fw-semibold">{{ client['name'] }}</div>
+                                        <div class="text-muted small text-truncate">
+                                            {{ client['description'] or 'No description provided.' }}
+                                        </div>
+                                    </div>
+                                    <a href="{{ url_for('view_client_accounts', customer_id=client['customer_id']) }}"
+                                       class="btn btn-sm btn-outline-primary flex-shrink-0">View Accounts</a>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted">
+                                <p class="mb-0">No clients assigned yet. A manager will assign clients to you.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Markets panel -->
+                    <div class="tab-pane fade" id="markets-panel" role="tabpanel">
+                        <div class="row gy-4">
+
+                            <!-- News feed -->
+                            <div class="col-12">
+                                <div class="market-inner-card">
+                                    <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                                        <div>
+                                            <h2 class="h5 mb-1">Financial News</h2>
+                                            <p class="text-muted mb-0 small">Stay current with the latest market-moving headlines.</p>
+                                        </div>
+                                    </div>
+                                    {% if news %}
+                                        <div class="list-group list-group-flush">
+                                            {% for item in news %}
+                                                <div class="list-group-item market-news-item px-0 py-3">
+                                                    <div class="d-flex justify-content-between align-items-start gap-3">
+                                                        <div class="min-w-0">
+                                                            <a href="{{ item.url }}" target="_blank"
+                                                               class="fw-semibold text-decoration-none market-news-link">{{ item.title }}</a>
+                                                            <div class="text-muted small mt-1">{{ item.source }}</div>
+                                                            <p class="mt-2 mb-0 text-muted small">{{ item.summary }}</p>
+                                                        </div>
+                                                        <span class="badge bg-primary-subtle text-primary rounded-pill align-self-start flex-shrink-0">News</span>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted mb-0">No news available right now.</p>
+                                    {% endif %}
                                 </div>
                             </div>
-                            <a href="{{ url_for('view_client_accounts', customer_id=client['customer_id']) }}"
-                               class="btn btn-sm btn-outline-primary flex-shrink-0">View Accounts</a>
+
+                            <!-- Recent chart -->
+                            <div class="col-lg-6">
+                                <div class="market-inner-card">
+                                    <h2 class="h6 mb-1">Recent Market Trend</h2>
+                                    <p class="text-muted mb-3 small">{{ recent_trend.description }}</p>
+                                    <div class="chart-card">
+                                        <canvas id="recentMarketChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Historical chart -->
+                            <div class="col-lg-6">
+                                <div class="market-inner-card">
+                                    <h2 class="h6 mb-1">Historical Market Trend</h2>
+                                    <p class="text-muted mb-3 small">{{ historical_trend.description }}</p>
+                                    <div class="chart-card">
+                                        <canvas id="historicalMarketChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
-                        {% endfor %}
                     </div>
-                {% else %}
-                    <div class="text-center py-5 text-muted">
-                        <p class="mb-0">No clients assigned yet. A manager will assign clients to you.</p>
-                    </div>
-                {% endif %}
+
+                </div>
             </div>
         </div>
     </div>
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    const recentData = {{ recent_trend | tojson }};
+    const historicalData = {{ historical_trend | tojson }};
+
+    let recentChart = null;
+    let historicalChart = null;
+
+    function initMarketCharts() {
+        if (recentChart) return;
+
+        const recentCtx = document.getElementById('recentMarketChart');
+        if (recentCtx) {
+            recentChart = new Chart(recentCtx, {
+                type: 'line',
+                data: {
+                    labels: recentData.labels,
+                    datasets: [{
+                        label: 'Recent Index',
+                        data: recentData.values,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#1d4ed8'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#475569' } },
+                        y: { grid: { color: 'rgba(15, 23, 42, 0.08)' }, ticks: { color: '#475569' } }
+                    }
+                }
+            });
+        }
+
+        const historicalCtx = document.getElementById('historicalMarketChart');
+        if (historicalCtx) {
+            historicalChart = new Chart(historicalCtx, {
+                type: 'line',
+                data: {
+                    labels: historicalData.labels,
+                    datasets: [{
+                        label: '12-Month Trend',
+                        data: historicalData.values,
+                        borderColor: '#14b8a6',
+                        backgroundColor: 'rgba(20, 184, 166, 0.12)',
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#0d9488'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#475569' } },
+                        y: { grid: { color: 'rgba(15, 23, 42, 0.08)' }, ticks: { color: '#475569' } }
+                    }
+                }
+            });
+        }
+    }
+
+    document.getElementById('markets-tab').addEventListener('shown.bs.tab', initMarketCharts);
+</script>
 {% endblock %}

@@ -616,6 +616,46 @@ footer {
     border: 3px solid rgba(37, 99, 235, 0.12);
 }
 
+/* Market inner cards (nested inside the main tab card) */
+.market-inner-card {
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(37, 99, 235, 0.10);
+    border-radius: 20px;
+    padding: 1.35rem 1.5rem;
+}
+
+/* Chart wrapper — gives the canvas a fixed height so Chart.js can size itself */
+.chart-card {
+    position: relative;
+    min-height: 300px;
+}
+
+.chart-card canvas {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* News list items inside the market panel */
+.market-news-item {
+    background: transparent;
+    border-bottom: 1px solid rgba(37, 99, 235, 0.08) !important;
+}
+
+.market-news-item:last-child {
+    border-bottom: none !important;
+}
+
+.market-news-link {
+    color: var(--text);
+    transition: color 0.2s;
+}
+
+.market-news-link:hover {
+    color: var(--primary);
+}
+
 /* Legal Pages - Terms & Privacy Policy */
 .legal-page {
     max-width: 900px;

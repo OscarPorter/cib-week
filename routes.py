@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, session, flash, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 from database import get_db
 from functools import wraps
 import pyotp
@@ -8,6 +8,8 @@ import qrcode
 import base64
 import io
 import json
+import math
+import random
 
 def no_cache(f):
     @wraps(f)
@@ -40,6 +42,52 @@ def get_customer_account(db, account_id, customer_id):
         'SELECT * FROM accounts WHERE account_id = ? AND customer_id = ?', 
         (account_id, customer_id)
     ).fetchone()
+
+
+def _get_market_data():
+    today = datetime.utcnow()
+    rng = random.Random(int(today.strftime('%Y%m%d')))
+
+    recent_labels, recent_values = [], []
+    val = 7580.0
+    for i in range(30):
+        d = today - timedelta(days=29 - i)
+        recent_labels.append(d.strftime('%d %b'))
+        val += rng.uniform(-35, 40) + math.sin(i * 0.4) * 12
+        recent_values.append(round(val, 2))
+
+    historical_labels, historical_values = [], []
+    val = 7050.0
+    for i in range(12):
+        d = today - timedelta(days=(11 - i) * 30)
+        historical_labels.append(d.strftime('%b %Y'))
+        val += rng.uniform(-90, 110) + math.sin(i * 0.5) * 40
+        historical_values.append(round(val, 2))
+
+    news = [
+        {'title': 'FTSE 100 Gains on Easing Inflation Data', 'source': 'Reuters', 'url': '#',
+         'summary': 'UK equities advanced as CPI figures came in below forecasts, raising hopes of further Bank of England rate cuts.'},
+        {'title': 'Bank of England Signals Gradual Rate Path', 'source': 'BBC News', 'url': '#',
+         'summary': 'The Monetary Policy Committee held rates steady while noting improving conditions for a measured easing cycle.'},
+        {'title': 'Tech Stocks Lead Broad Market Recovery', 'source': 'Bloomberg', 'url': '#',
+         'summary': 'Technology equities surged globally as Q1 earnings broadly beat analyst expectations.'},
+        {'title': 'Oil Prices Stabilise Near $82 a Barrel', 'source': 'Financial Times', 'url': '#',
+         'summary': 'Brent crude settled on tight supply after OPEC+ confirmed output cuts through mid-year.'},
+        {'title': 'Sterling Strengthens on Positive Trade Figures', 'source': 'The Guardian', 'url': '#',
+         'summary': 'The pound climbed to a three-month high after UK trade balance data exceeded expectations.'},
+    ]
+
+    recent_trend = {
+        'labels': recent_labels,
+        'values': recent_values,
+        'description': 'FTSE 100 index — last 30 trading days.',
+    }
+    historical_trend = {
+        'labels': historical_labels,
+        'values': historical_values,
+        'description': '12-month FTSE 100 index performance.',
+    }
+    return recent_trend, historical_trend, news
 
 
 def register_routes(app):
@@ -378,10 +426,53 @@ def register_routes(app):
             SELECT c.customer_id, c.name, c.email, c.description
             FROM user_assignments ua
             JOIN customers c ON ua.customer_id = c.customer_id
-            WHERE ua.adviser_id = ?
+            WHERE ua.adviser_id = ? AND ua.status = 'accepted'
             ORDER BY c.name
         ''', (session['user_id'],)).fetchall()
-        return render_template('adviser_dashboard.html', clients=clients)
+        pending_requests = db.execute('''
+            SELECT c.customer_id, c.name, c.description
+            FROM user_assignments ua
+            JOIN customers c ON ua.customer_id = c.customer_id
+            WHERE ua.adviser_id = ? AND ua.status = 'pending'
+            ORDER BY c.name
+        ''', (session['user_id'],)).fetchall()
+        recent_trend, historical_trend, news = _get_market_data()
+        return render_template('adviser_dashboard.html',
+                               clients=clients,
+                               pending_requests=pending_requests,
+                               recent_trend=recent_trend,
+                               historical_trend=historical_trend,
+                               news=news)
+
+    @app.route('/adviser/request/accept/<int:customer_id>', methods=['POST'])
+    @login_required
+    @no_cache
+    def accept_request(customer_id):
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        db.execute(
+            "UPDATE user_assignments SET status = 'accepted' WHERE adviser_id = ? AND customer_id = ? AND status = 'pending'",
+            (session['user_id'], customer_id)
+        )
+        db.commit()
+        flash('Client request accepted.', 'success')
+        return redirect(url_for('adviser_dashboard'))
+
+    @app.route('/adviser/request/decline/<int:customer_id>', methods=['POST'])
+    @login_required
+    @no_cache
+    def decline_request(customer_id):
+        if session.get('role') != 'adviser' or session.get('is_manager'):
+            return redirect(url_for('index'))
+        db = get_db()
+        db.execute(
+            "DELETE FROM user_assignments WHERE adviser_id = ? AND customer_id = ? AND status = 'pending'",
+            (session['user_id'], customer_id)
+        )
+        db.commit()
+        flash('Client request declined.', 'info')
+        return redirect(url_for('adviser_dashboard'))
 
     @app.route('/manager/dashboard')
     @login_required
@@ -433,7 +524,7 @@ def register_routes(app):
             flash('This customer already has an adviser assigned.', 'warning')
             return redirect(url_for('manager_dashboard'))
         db.execute(
-            "INSERT INTO user_assignments (adviser_id, customer_id, status) VALUES (?, ?, 'accepted')",
+            "INSERT INTO user_assignments (adviser_id, customer_id, status) VALUES (?, ?, 'pending')",
             (adviser_id, customer_id)
         )
         db.execute('DELETE FROM customer_requests WHERE customer_id = ?', (customer_id,))
