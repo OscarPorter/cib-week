@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block title %}Manager Dashboard - DWK Finance{% endblock %}
+
+{% block body %}
+<main class="container main-content">
+    <div class="row gy-4">
+        <div class="col-12">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            <strong>{{ 'Notice' if category == 'info' else category.title() }}:</strong> {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <h1 class="page-heading mb-2">Manager Dashboard</h1>
+                <p class="text-muted mb-0">Assign advisers to clients based on their needs and adviser expertise.</p>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <ul class="nav nav-pills mb-4" id="managerTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pending-panel" type="button" role="tab">
+                            Pending Requests
+                            {% if pending_requests %}
+                                <span class="badge bg-danger ms-1">{{ pending_requests|length }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary ms-1">0</span>
+                            {% endif %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#assignments-panel" type="button" role="tab">
+                            Current Assignments
+                            <span class="badge bg-secondary ms-1">{{ assignments|length }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#advisers-panel" type="button" role="tab">
+                            Adviser Roster
+                            <span class="badge bg-secondary ms-1">{{ advisers|length }}</span>
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="managerTabContent">
+
+                    <!-- Pending Requests -->
+                    <div class="tab-pane fade show active" id="pending-panel" role="tabpanel">
+                        {% if pending_requests %}
+                            <div class="d-flex flex-column gap-3">
+                                {% for req in pending_requests %}
+                                <div class="adviser-client-row">
+                                    <div class="d-flex align-items-center gap-3 mb-3">
+                                        <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
+                                             alt="{{ req['name'] }}"
+                                             class="client-pfp flex-shrink-0">
+                                        <div class="flex-grow-1 min-w-0">
+                                            <div class="fw-semibold">{{ req['name'] }}</div>
+                                            <div class="text-muted small">{{ req['description'] or 'No description provided.' }}</div>
+                                        </div>
+                                    </div>
+                                    <form method="post" action="{{ url_for('assign_adviser', customer_id=req['customer_id']) }}"
+                                          class="d-flex align-items-center gap-2">
+                                        <select name="adviser_id" class="form-select form-select-sm" required>
+                                            <option value="">Select an adviser...</option>
+                                            {% for adviser in advisers %}
+                                                <option value="{{ adviser['adviser_id'] }}">{{ adviser['name'] }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-primary flex-shrink-0">Assign</button>
+                                    </form>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted">
+                                <p class="mb-0">No pending requests at this time.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Current Assignments -->
+                    <div class="tab-pane fade" id="assignments-panel" role="tabpanel">
+                        {% if assignments %}
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Customer</th>
+                                            <th>Assigned Adviser</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for a in assignments %}
+                                        <tr>
+                                            <td class="fw-medium">{{ a['customer_name'] }}</td>
+                                            <td>{{ a['adviser_name'] }}</td>
+                                            <td class="text-end">
+                                                <form method="post" action="{{ url_for('unassign_adviser', customer_id=a['customer_id']) }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Unassign</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted">
+                                <p class="mb-0">No assignments yet.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Adviser Roster -->
+                    <div class="tab-pane fade" id="advisers-panel" role="tabpanel">
+                        {% if advisers %}
+                            <div class="d-flex flex-column gap-3">
+                                {% for adviser in advisers %}
+                                <div class="adviser-client-row d-flex align-items-center gap-3">
+                                    <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
+                                         alt="{{ adviser['name'] }}"
+                                         class="client-pfp flex-shrink-0">
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="fw-semibold">{{ adviser['name'] }}</div>
+                                        <div class="text-muted small">{{ adviser['description'] or 'No description provided.' }}</div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted">
+                                <p class="mb-0">No advisers available.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

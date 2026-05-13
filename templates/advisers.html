@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Browse Advisers - DWK Finance{% endblock %}
+{% block title %}Request an Adviser - DWK Finance{% endblock %}
 
 {% block body %}
 <main class="container main-content">
@@ -22,58 +22,31 @@
             <div class="card card-surface p-4">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                     <div>
-                        <h1 class="page-heading mb-2">Find an Adviser</h1>
-                        <p class="text-muted mb-0">
-                            {% if has_assignment %}
-                                Remove your current adviser to request a different one.
-                            {% else %}
-                                Browse our team of financial advisers and send a request to get started.
-                            {% endif %}
-                        </p>
+                        <h1 class="page-heading mb-2">Request an Adviser</h1>
+                        <p class="text-muted mb-0">Submit a request and our team manager will match you with the most suitable financial adviser based on your needs.</p>
                     </div>
                     <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">Back to Dashboard</a>
                 </div>
             </div>
         </div>
 
-        {% if advisers %}
-            {% for adviser in advisers %}
-            {% set status = assignment_map.get(adviser['adviser_id']) %}
-            <div class="col-md-6 col-xl-4">
-                <div class="card card-surface h-100 d-flex flex-column align-items-center text-center p-4">
-                    <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
-                         alt="{{ adviser['name'] }}"
-                         class="adviser-pfp mb-3">
-                    <h5 class="mb-1">{{ adviser['name'] }}</h5>
-                    <p class="text-muted small mb-4 flex-grow-1">{{ adviser['description'] or 'Financial Adviser at DWK Finance.' }}</p>
-
-                    {% if status == 'accepted' %}
-                        <span class="badge adviser-badge-active py-2 px-3 mb-2">Your Adviser</span>
-                        <form method="post" action="{{ url_for('remove_adviser', adviser_id=adviser['adviser_id']) }}" class="w-100">
-                            <button type="submit" class="btn btn-sm btn-outline-danger w-100">Remove Adviser</button>
-                        </form>
-                    {% elif status == 'pending' %}
-                        <span class="badge adviser-badge-pending py-2 px-3 mb-2">Request Pending</span>
-                        <form method="post" action="{{ url_for('cancel_adviser_request', adviser_id=adviser['adviser_id']) }}" class="w-100">
-                            <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Cancel Request</button>
-                        </form>
-                    {% elif has_assignment %}
-                        <button class="btn btn-sm btn-outline-secondary w-100" disabled>Remove current adviser first</button>
-                    {% else %}
-                        <form method="post" action="{{ url_for('request_adviser', adviser_id=adviser['adviser_id']) }}" class="w-100">
-                            <button type="submit" class="btn btn-primary btn-sm w-100">Request Adviser</button>
-                        </form>
-                    {% endif %}
-                </div>
+        <div class="col-12">
+            <div class="card card-surface p-5 text-center">
+                {% if pending %}
+                    <h5 class="mb-2">Request Submitted</h5>
+                    <p class="text-muted mb-4">Your request is pending. A manager will review your profile description and assign you the most suitable adviser for your financial situation.</p>
+                    <form method="post" action="{{ url_for('cancel_adviser_request') }}">
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Cancel Request</button>
+                    </form>
+                {% else %}
+                    <h5 class="mb-2">Get Matched with an Adviser</h5>
+                    <p class="text-muted mb-4">Our manager will review your profile and pair you with an adviser whose expertise best fits your financial goals. Add a description to your profile in Settings to help with the match.</p>
+                    <form method="post" action="{{ url_for('request_adviser') }}">
+                        <button type="submit" class="btn btn-primary">Request an Adviser</button>
+                    </form>
+                {% endif %}
             </div>
-            {% endfor %}
-        {% else %}
-            <div class="col-12">
-                <div class="card card-surface p-5 text-center">
-                    <p class="text-muted mb-0">No advisers are currently available. Please check back later.</p>
-                </div>
-            </div>
-        {% endif %}
+        </div>
     </div>
 </main>
 {% endblock %}

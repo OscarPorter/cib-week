@@ -35,23 +35,24 @@
                 <div class="card card-surface p-3 d-flex flex-row align-items-center gap-3">
                     <img src="{{ url_for('static', filename='blank_pfp.jpg') }}" alt="Adviser" class="client-pfp flex-shrink-0">
                     <div class="flex-grow-1 min-w-0">
-                        {% if current_adviser['status'] == 'accepted' %}
-                            <span class="text-muted small">Your adviser</span>
-                            <div class="fw-semibold">{{ current_adviser['name'] }}</div>
-                        {% else %}
-                            <span class="text-muted small">Pending request</span>
-                            <div class="fw-semibold">{{ current_adviser['name'] }}</div>
-                        {% endif %}
+                        <span class="text-muted small">Your adviser</span>
+                        <div class="fw-semibold">{{ current_adviser['name'] }}</div>
                     </div>
-                    {% if current_adviser['status'] == 'accepted' %}
-                        <form method="post" action="{{ url_for('remove_adviser', adviser_id=current_adviser['adviser_id']) }}" class="flex-shrink-0">
-                            <button type="submit" class="btn btn-sm btn-outline-danger">Remove Adviser</button>
-                        </form>
-                    {% else %}
-                        <form method="post" action="{{ url_for('cancel_adviser_request', adviser_id=current_adviser['adviser_id']) }}" class="flex-shrink-0">
-                            <button type="submit" class="btn btn-sm btn-outline-secondary">Cancel Request</button>
-                        </form>
-                    {% endif %}
+                    <form method="post" action="{{ url_for('remove_adviser') }}" class="flex-shrink-0">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove Adviser</button>
+                    </form>
+                </div>
+            </div>
+            {% elif pending_request %}
+            <div class="col-12">
+                <div class="card card-surface p-3 d-flex flex-row align-items-center gap-3">
+                    <div class="flex-grow-1 min-w-0">
+                        <span class="text-muted small">Adviser request pending</span>
+                        <div class="fw-semibold text-muted">Waiting for a manager to assign your adviser</div>
+                    </div>
+                    <form method="post" action="{{ url_for('cancel_adviser_request') }}" class="flex-shrink-0">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Cancel Request</button>
+                    </form>
                 </div>
             </div>
             {% endif %}
