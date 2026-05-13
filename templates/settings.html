@@ -1,68 +1,163 @@
 {% extends 'base.html' %}
-{% block title %}Settings - Financial Management{% endblock %}
+{% block title %}Settings — DWK Finance{% endblock %}
+
 {% block body %}
 <main class="container main-content">
-    <div class="auth-wrapper mx-auto">
-        <div class="auth-card">
-            <div class="text-center mb-4">
-                <h1 class="h3">Account Settings</h1>
-                <p class="text-muted">Manage your account preferences and security settings.</p>
-            </div>
+    <div class="row gy-4" style="max-width: 720px;">
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
+        <div class="col-12">
+            <h1 class="page-heading mb-1">Settings</h1>
+            <p class="text-muted mb-0">Manage your profile and account security.</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="col-12">
                     {% for category, message in messages %}
                         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            <strong>{{ 'Notice' if category == 'info' else category.title() }}:</strong> {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            <div class="mb-4">
-                <h5>Two-Factor Authentication</h5>
-                {% if user.is_2fa_enabled %}
-                    <p class="text-success">✓ Enabled</p>
-                    <p class="small text-muted">Your account is protected with two-factor authentication.</p>
-                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#disable2faModal">Disable 2FA</button>
-                {% else %}
-                    <p class="text-warning">✗ Not Enabled</p>
-                    <p class="small text-muted">Add an extra layer of security to your account.</p>
-                    <a href="{{ url_for('setup_2fa') }}" class="btn btn-outline-primary">Enable 2FA</a>
-                {% endif %}
-            </div>
-
-            <!-- Modal for disabling 2FA -->
-            <div class="modal fade" id="disable2faModal" tabindex="-1" aria-labelledby="disable2faModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="disable2faModalLabel">Disable Two-Factor Authentication</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <form method="post">
-                            <div class="modal-body">
-                                <p>Enter your current authentication code to confirm disabling 2FA:</p>
-                                <input type="hidden" name="action" value="disable_2fa">
-                                <div class="mb-3">
-                                    <label for="code" class="form-label">Authentication Code</label>
-                                    <input id="code" name="code" type="text" class="form-control" placeholder="123456" required autocomplete="one-time-code">
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-danger">Disable 2FA</button>
-                            </div>
-                        </form>
-                    </div>
                 </div>
-            </div>
+            {% endif %}
+        {% endwith %}
 
-            <div class="mt-4 text-center">
-                <a href="{{ url_for('index') }}" class="text-decoration-none">Return to dashboard</a>
+        <!-- Profile details -->
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <h5 class="fw-600 mb-1" style="font-size:1rem;">Profile Details</h5>
+                <p class="text-muted mb-4" style="font-size:0.85rem;">Update your name and email address.</p>
+
+                <form method="post" novalidate>
+                    <input type="hidden" name="action" value="update_profile">
+
+                    <div class="mb-3">
+                        <label class="auth-field-label" for="name">Full Name</label>
+                        <input id="name" name="name" type="text" class="auth-input"
+                               value="{{ user['name'] }}" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="auth-field-label" for="email">Email Address</label>
+                        <input id="email" name="email" type="email" class="auth-input"
+                               value="{{ user['email'] }}" required>
+                    </div>
+
+                    {% if session.get('role') == 'customer' %}
+                    <div class="mb-4">
+                        <label class="auth-field-label" for="currency">Currency</label>
+                        <select id="currency" name="currency" class="auth-input">
+                            {% for code in ['GBP', 'USD', 'EUR', 'JPY', 'CAD', 'AUD'] %}
+                                <option value="{{ code }}" {% if user['currency'] == code %}selected{% endif %}>{{ code }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <button type="submit" class="btn btn-dark px-4" style="border-radius: var(--radius-pill); font-size:0.875rem;">
+                        Save Changes
+                    </button>
+                </form>
             </div>
         </div>
+
+        <!-- Change password -->
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <h5 class="fw-600 mb-1" style="font-size:1rem;">Change Password</h5>
+                <p class="text-muted mb-4" style="font-size:0.85rem;">Choose a strong password you don't use elsewhere.</p>
+
+                <form method="post" novalidate>
+                    <input type="hidden" name="action" value="change_password">
+
+                    <div class="mb-3">
+                        <label class="auth-field-label" for="current_password">Current Password</label>
+                        <input id="current_password" name="current_password" type="password"
+                               class="auth-input" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="auth-field-label" for="new_password">New Password</label>
+                        <input id="new_password" name="new_password" type="password"
+                               class="auth-input" placeholder="••••••••" required autocomplete="new-password">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="auth-field-label" for="confirm_password">Confirm New Password</label>
+                        <input id="confirm_password" name="confirm_password" type="password"
+                               class="auth-input" placeholder="••••••••" required autocomplete="new-password">
+                    </div>
+
+                    <button type="submit" class="btn btn-dark px-4" style="border-radius: var(--radius-pill); font-size:0.875rem;">
+                        Update Password
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Two-factor authentication -->
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="fw-600 mb-1" style="font-size:1rem;">Two-Factor Authentication</h5>
+                        {% if user.is_2fa_enabled %}
+                            <p class="text-muted mb-0" style="font-size:0.85rem;">Your account is protected with an authenticator app.</p>
+                        {% else %}
+                            <p class="text-muted mb-0" style="font-size:0.85rem;">Add an extra layer of security to your account.</p>
+                        {% endif %}
+                    </div>
+                    <span class="badge {% if user.is_2fa_enabled %}bg-success{% else %}bg-secondary{% endif %} ms-3" style="font-size:0.75rem; padding: 0.4em 0.75em;">
+                        {{ 'Enabled' if user.is_2fa_enabled else 'Disabled' }}
+                    </span>
+                </div>
+
+                <div class="mt-3">
+                    {% if user.is_2fa_enabled %}
+                        <button type="button" class="btn btn-outline-danger btn-sm px-3"
+                                style="border-radius: var(--radius-pill); font-size:0.85rem;"
+                                data-bs-toggle="modal" data-bs-target="#disable2faModal">
+                            Disable 2FA
+                        </button>
+                    {% else %}
+                        <a href="{{ url_for('setup_2fa') }}"
+                           class="btn btn-dark btn-sm px-3"
+                           style="border-radius: var(--radius-pill); font-size:0.85rem;">
+                            Enable 2FA
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
     </div>
 </main>
+
+<!-- Disable 2FA modal -->
+<div class="modal fade" id="disable2faModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: var(--radius-lg); border: 1px solid var(--clr-gray-200);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Disable Two-Factor Authentication</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                <div class="modal-body pt-2">
+                    <p class="text-muted" style="font-size:0.9rem;">Enter your current authentication code to confirm.</p>
+                    <input type="hidden" name="action" value="disable_2fa">
+                    <label class="auth-field-label" for="code">Authentication Code</label>
+                    <input id="code" name="code" type="text" class="auth-input"
+                           placeholder="123456" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-secondary btn-sm px-3"
+                            style="border-radius: var(--radius-pill);" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger btn-sm px-3"
+                            style="border-radius: var(--radius-pill);">Disable 2FA</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

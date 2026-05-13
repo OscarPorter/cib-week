@@ -1150,7 +1150,73 @@ def register_routes(app):
 
         if request.method == 'POST':
             action = request.form.get('action')
-            if action == 'disable_2fa':
+
+            if action == 'update_profile':
+                name  = request.form.get('name', '').strip()
+                email = request.form.get('email', '').strip().lower()
+
+                if not name or not email:
+                    flash('Name and email are required.', 'danger')
+                    return redirect(url_for('settings'))
+
+                # Check email is not already taken by another account
+                if session['role'] == 'adviser':
+                    clash = db.execute(
+                        'SELECT 1 FROM advisers WHERE email = ? AND adviser_id != ?',
+                        (email, session['user_id'])
+                    ).fetchone()
+                else:
+                    clash = db.execute(
+                        'SELECT 1 FROM customers WHERE email = ? AND customer_id != ?',
+                        (email, session['user_id'])
+                    ).fetchone()
+
+                if clash:
+                    flash('That email address is already in use.', 'danger')
+                    return redirect(url_for('settings'))
+
+                if session['role'] == 'adviser':
+                    db.execute('UPDATE advisers SET name = ?, email = ? WHERE adviser_id = ?',
+                               (name, email, session['user_id']))
+                else:
+                    currency = request.form.get('currency', user['currency'])
+                    db.execute('UPDATE customers SET name = ?, email = ?, currency = ? WHERE customer_id = ?',
+                               (name, email, currency, session['user_id']))
+
+                db.commit()
+                session['username'] = name
+                flash('Profile updated successfully.', 'success')
+                return redirect(url_for('settings'))
+
+            elif action == 'change_password':
+                current  = request.form.get('current_password', '')
+                new_pw   = request.form.get('new_password', '')
+                confirm  = request.form.get('confirm_password', '')
+
+                if not check_password_hash(user['password'], current):
+                    flash('Current password is incorrect.', 'danger')
+                    return redirect(url_for('settings'))
+
+                if new_pw != confirm:
+                    flash('New passwords do not match.', 'danger')
+                    return redirect(url_for('settings'))
+
+                if len(new_pw) < 8:
+                    flash('New password must be at least 8 characters.', 'danger')
+                    return redirect(url_for('settings'))
+
+                if session['role'] == 'adviser':
+                    db.execute('UPDATE advisers SET password = ? WHERE adviser_id = ?',
+                               (generate_password_hash(new_pw), session['user_id']))
+                else:
+                    db.execute('UPDATE customers SET password = ? WHERE customer_id = ?',
+                               (generate_password_hash(new_pw), session['user_id']))
+
+                db.commit()
+                flash('Password changed successfully.', 'success')
+                return redirect(url_for('settings'))
+
+            elif action == 'disable_2fa':
                 code = request.form.get('code', '').strip()
                 if user['totp_secret'] and pyotp.TOTP(user['totp_secret']).verify(code, valid_window=1):
                     if session['role'] == 'adviser':
