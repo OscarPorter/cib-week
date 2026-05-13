@@ -69,6 +69,83 @@
         </div>
 
         {% if not is_adviser_view %}
+        <!-- Goals -->
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="h5 mb-1">Balance Goals</h2>
+                        <p class="text-muted mb-0" style="font-size:0.85rem;">Track savings targets for this account.</p>
+                    </div>
+                    <button class="btn btn-sm btn-dark px-3" style="border-radius:var(--radius-pill);font-size:0.85rem;"
+                            data-bs-toggle="collapse" data-bs-target="#addGoalForm">
+                        + Add Goal
+                    </button>
+                </div>
+
+                <div class="collapse mb-3" id="addGoalForm">
+                    <div class="border rounded-3 p-3" style="background:var(--clr-gray-100);">
+                        <form method="post" action="{{ url_for('add_goal', account_id=account['account_id']) }}" class="row g-2 align-items-end">
+                            <div class="col-sm-4">
+                                <label class="auth-field-label" for="goal_name">Goal Name</label>
+                                <input id="goal_name" name="goal_name" class="auth-input" placeholder="e.g. Emergency Fund" required>
+                            </div>
+                            <div class="col-sm-3">
+                                <label class="auth-field-label" for="target_amount">Target (£)</label>
+                                <input id="target_amount" name="target_amount" type="number" step="0.01" min="0.01" class="auth-input" placeholder="5000.00" required>
+                            </div>
+                            <div class="col-sm-3">
+                                <label class="auth-field-label" for="deadline">Deadline</label>
+                                <input id="deadline" name="deadline" type="date" class="auth-input">
+                            </div>
+                            <div class="col-sm-2">
+                                <button type="submit" class="btn btn-dark w-100" style="border-radius:var(--radius-pill);font-size:0.85rem;height:2.6rem;">Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                {% if goals %}
+                    <div class="d-flex flex-column gap-3">
+                    {% for goal in goals %}
+                        {% set balance = account['balance'] or 0 %}
+                        {% set target  = goal['target_amount'] or 1 %}
+                        {% set pct     = [[(balance / target * 100)|round(1), 0]|max, 100]|min %}
+                        {% set reached = balance >= target %}
+                        {% set overdue = goal['deadline'] and goal['deadline'][:10] < today and not reached %}
+                        <div class="d-flex flex-column gap-1">
+                            <div class="d-flex justify-content-between align-items-baseline">
+                                <span class="fw-semibold" style="font-size:0.9rem;">{{ goal['name'] }}</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if reached %}
+                                        <span class="badge bg-success" style="font-size:0.72rem;">Reached</span>
+                                    {% elif overdue %}
+                                        <span class="badge bg-danger" style="font-size:0.72rem;">Overdue</span>
+                                    {% elif goal['deadline'] %}
+                                        <span class="text-muted" style="font-size:0.78rem;">by {{ goal['deadline'][:10] }}</span>
+                                    {% endif %}
+                                    <span class="text-muted" style="font-size:0.82rem;">£{{ '%.2f'|format(balance) }} / £{{ '%.2f'|format(target) }}</span>
+                                    <form method="post" action="{{ url_for('delete_goal', account_id=account['account_id'], goal_id=goal['goal_id']) }}" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size:0.75rem;">Remove</button>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="progress" style="height:8px;border-radius:999px;">
+                                <div class="progress-bar {% if reached %}bg-success{% elif overdue %}bg-danger{% else %}bg-dark{% endif %}"
+                                     style="width:{{ pct }}%;border-radius:999px;" role="progressbar"
+                                     aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0" style="font-size:0.875rem;">No goals yet. Add one above to start tracking.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if not is_adviser_view %}
         <div class="col-lg-5">
             <div class="card card-surface p-4">
                 <h2 class="h5 mb-3">Add Transaction</h2>

@@ -7,7 +7,6 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_db():
     with get_db() as db:
         db.executescript('''
             CREATE TABLE IF NOT EXISTS customers (
@@ -56,9 +55,11 @@ def init_db():
 
             CREATE TABLE IF NOT EXISTS categories (
                 category_id INTEGER PRIMARY KEY,
-                name        TEXT UNIQUE,
+                name        TEXT,
                 colour      TEXT,
-                description TEXT );
+                description TEXT,
+                customer_id INTEGER,
+                FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
 
             CREATE TABLE IF NOT EXISTS user_assignments (
                 adviser_id  INTEGER,
@@ -110,9 +111,11 @@ def init_db():
             CREATE TABLE IF NOT EXISTS budgets (
                 budget_id      INTEGER PRIMARY KEY,
                 customer_id    INTEGER,
+                category_id    INTEGER,
                 maximum_amount REAL,
                 start_date     DATETIME,
-                end_date       DATETIME );
+                end_date       DATETIME,
+                FOREIGN KEY (category_id) REFERENCES categories(category_id) );
 
             CREATE TABLE IF NOT EXISTS goals (
                 goal_id       INTEGER PRIMARY KEY,
@@ -156,14 +159,26 @@ def init_db():
                 customer_id INTEGER UNIQUE,
                 created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (customer_id) REFERENCES customers(customer_id) );
-
-            INSERT OR IGNORE INTO categories (name, colour, description) VALUES
-                ('Food',          '#FF6B6B', 'Food and dining expenses'),
-                ('Transport',     '#4ECDC4', 'Transportation costs'),
-                ('Entertainment', '#45B7D1', 'Entertainment and leisure'),
-                ('Bills',         '#FFA07A', 'Utility bills and subscriptions'),
-                ('Salary',        '#98D8C8', 'Income from salary'),
-                ('Shopping',      '#F7DC6F', 'General shopping'),
-                ('Health',        '#BB8FCE', 'Medical and health expenses'),
-                ('Other',         '#AED6F1', 'Miscellaneous');
         ''')
+
+    # Seed default system categories (idempotent — customer_id IS NULL marks them as system)
+    defaults = [
+        ('Food',          '#FF6B6B', 'Food and dining expenses'),
+        ('Transport',     '#4ECDC4', 'Transportation costs'),
+        ('Entertainment', '#45B7D1', 'Entertainment and leisure'),
+        ('Bills',         '#FFA07A', 'Utility bills and subscriptions'),
+        ('Salary',        '#98D8C8', 'Income from salary'),
+        ('Shopping',      '#F7DC6F', 'General shopping'),
+        ('Health',        '#BB8FCE', 'Medical and health expenses'),
+        ('Other',         '#AED6F1', 'Miscellaneous'),
+    ]
+    with get_db() as db:
+        for name, colour, desc in defaults:
+            db.execute('''
+                INSERT INTO categories (name, colour, description, customer_id)
+                SELECT ?, ?, ?, NULL
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM categories WHERE name = ? AND customer_id IS NULL
+                )
+            ''', (name, colour, desc, name))
+        db.commit()

@@ -96,6 +96,51 @@
             </div>
         </div>
 
+        <!-- Custom categories (customers only) -->
+        {% if session.get('role') == 'customer' %}
+        <div class="col-12">
+            <div class="card card-surface p-4">
+                <h5 class="fw-600 mb-1" style="font-size:1rem;">Custom Categories</h5>
+                <p class="text-muted mb-4" style="font-size:0.85rem;">Add your own categories with a custom colour. System categories cannot be edited.</p>
+
+                {% if custom_categories %}
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                    {% for cat in custom_categories %}
+                    <div class="d-flex align-items-center gap-2 border rounded-pill px-3 py-2" style="background:var(--clr-gray-100);">
+                        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:{{ cat['colour'] }};flex-shrink:0;"></span>
+                        <span style="font-size:0.875rem;font-weight:500;">{{ cat['name'] }}</span>
+                        <button type="button"
+                                class="btn btn-link p-0 ms-1 text-muted"
+                                style="font-size:0.75rem;line-height:1;text-decoration:none;"
+                                data-bs-toggle="modal" data-bs-target="#editCatModal"
+                                data-cat-id="{{ cat['category_id'] }}"
+                                data-cat-name="{{ cat['name'] }}"
+                                data-cat-colour="{{ cat['colour'] }}">
+                            Edit
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('add_category') }}" class="d-flex gap-2 align-items-end flex-wrap">
+                    <div style="flex:1;min-width:160px;">
+                        <label class="auth-field-label" for="cat_name">Category Name</label>
+                        <input id="cat_name" name="cat_name" type="text" class="auth-input" placeholder="e.g. Gym, Pet Care" required>
+                    </div>
+                    <div>
+                        <label class="auth-field-label" for="cat_colour">Colour</label>
+                        <input id="cat_colour" name="cat_colour" type="color" value="#4ECDC4"
+                               style="height:2.6rem;width:3.5rem;padding:0.2rem 0.3rem;border:1.5px solid var(--clr-gray-200);border-radius:var(--radius-md);cursor:pointer;">
+                    </div>
+                    <button type="submit" class="btn btn-dark px-4" style="border-radius:var(--radius-pill);font-size:0.875rem;height:2.6rem;">
+                        Add Category
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Two-factor authentication -->
         <div class="col-12">
             <div class="card card-surface p-4">
@@ -160,4 +205,65 @@
         </div>
     </div>
 </div>
+
+<!-- Edit category modal -->
+{% if session.get('role') == 'customer' %}
+<div class="modal fade" id="editCatModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content" style="border-radius:var(--radius-lg);border:1px solid var(--clr-gray-200);">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" style="font-size:0.95rem;">Edit Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editCatForm" method="post">
+                <div class="modal-body pt-2">
+                    <div class="mb-3">
+                        <label class="auth-field-label" for="edit-cat-name">Name</label>
+                        <input id="edit-cat-name" name="cat_name" type="text" class="auth-input" required>
+                    </div>
+                    <div class="mb-1">
+                        <label class="auth-field-label" for="edit-cat-colour">Colour</label>
+                        <input id="edit-cat-colour" name="cat_colour" type="color"
+                               style="height:2.6rem;width:100%;padding:0.2rem 0.4rem;border:1.5px solid var(--clr-gray-200);border-radius:var(--radius-md);cursor:pointer;">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-danger px-3" id="deleteCatBtn"
+                            style="border-radius:var(--radius-pill);margin-right:auto;">Delete</button>
+                    <button type="button" class="btn btn-secondary btn-sm px-3"
+                            style="border-radius:var(--radius-pill);" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-dark btn-sm px-3"
+                            style="border-radius:var(--radius-pill);">Save</button>
+                </div>
+            </form>
+            <form id="deleteCatForm" method="post" style="display:none;"></form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var modal = document.getElementById('editCatModal');
+    if (!modal) return;
+
+    modal.addEventListener('show.bs.modal', function (e) {
+        var btn    = e.relatedTarget;
+        var id     = btn.getAttribute('data-cat-id');
+        var name   = btn.getAttribute('data-cat-name');
+        var colour = btn.getAttribute('data-cat-colour');
+
+        document.getElementById('edit-cat-name').value   = name;
+        document.getElementById('edit-cat-colour').value = colour;
+        document.getElementById('editCatForm').action    = '/categories/' + id + '/edit';
+        document.getElementById('deleteCatForm').action  = '/categories/' + id + '/delete';
+    });
+
+    document.getElementById('deleteCatBtn').addEventListener('click', function () {
+        if (confirm('Delete this category? Transactions using it will become uncategorised.')) {
+            document.getElementById('deleteCatForm').submit();
+        }
+    });
+}());
+</script>
+{% endif %}
 {% endblock %}

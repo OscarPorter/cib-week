@@ -114,7 +114,30 @@ def register_routes(app):
                 'SELECT request_id FROM customer_requests WHERE customer_id = ?',
                 (session['user_id'],)
             ).fetchone()
-            return render_template('index.html', accounts=accounts, current_adviser=current_adviser, pending_request=pending_request)
+            categories = db.execute(
+                'SELECT * FROM categories WHERE customer_id IS NULL OR customer_id = ? ORDER BY name',
+                (session['user_id'],)
+            ).fetchall()
+            budgets = db.execute('''
+                SELECT b.budget_id, b.maximum_amount, b.start_date, b.end_date,
+                       b.category_id, c.name AS category_name, c.colour AS category_colour,
+                       COALESCE((
+                           SELECT SUM(ABS(t.amount))
+                           FROM transactions t
+                           JOIN accounts a ON t.account_id = a.account_id
+                           WHERE a.customer_id = b.customer_id
+                             AND t.category_id = b.category_id
+                             AND t.amount < 0
+                             AND date(t.transaction_date) >= date(b.start_date)
+                             AND date(t.transaction_date) <= date(b.end_date)
+                       ), 0) AS spent
+                FROM budgets b
+                LEFT JOIN categories c ON b.category_id = c.category_id
+                WHERE b.customer_id = ?
+                ORDER BY b.budget_id DESC
+            ''', (session['user_id'],)).fetchall()
+            return render_template('index.html', accounts=accounts, current_adviser=current_adviser,
+                                   pending_request=pending_request, categories=categories, budgets=budgets)
         if session.get('role') == 'adviser':
             if session.get('is_manager'):
                 return redirect(url_for('manager_dashboard'))
@@ -202,7 +225,16 @@ def register_routes(app):
         else:
             return redirect(url_for('index'))
 
-        categories = db.execute('SELECT * FROM categories ORDER BY name').fetchall()
+        owner_id = session['user_id'] if session.get('role') == 'customer' else None
+        if owner_id:
+            categories = db.execute(
+                'SELECT * FROM categories WHERE customer_id IS NULL OR customer_id = ? ORDER BY name',
+                (owner_id,)
+            ).fetchall()
+        else:
+            categories = db.execute(
+                'SELECT * FROM categories WHERE customer_id IS NULL ORDER BY name'
+            ).fetchall()
 
         transactions = db.execute('''
             SELECT t.*, c.name AS category_name, c.colour AS category_colour
@@ -284,6 +316,13 @@ def register_routes(app):
             }
         })
 
+        goals = []
+        if not is_adviser_view:
+            goals = db.execute(
+                'SELECT * FROM goals WHERE account_id = ? ORDER BY deadline ASC',
+                (account_id,)
+            ).fetchall()
+
         return render_template(
             'account_detail.html',
             account=account,
@@ -292,7 +331,8 @@ def register_routes(app):
             chart_data=chart_data,
             today=datetime.utcnow().strftime('%Y-%m-%d'),
             is_adviser_view=is_adviser_view,
-            back_url=back_url
+            back_url=back_url,
+            goals=goals
         )
 
     @app.route('/accounts/<int:account_id>/transactions/add', methods=['POST'])
@@ -326,7 +366,8 @@ def register_routes(app):
             return redirect(url_for('index'))
 
         category_row = db.execute(
-            'SELECT category_id FROM categories WHERE name = ?', (category,)
+            'SELECT category_id FROM categories WHERE name = ? AND (customer_id IS NULL OR customer_id = ?)',
+            (category, session['user_id'])
         ).fetchone() if category else None
         category_id = category_row['category_id'] if category_row else None
 
@@ -382,7 +423,8 @@ def register_routes(app):
             return redirect(url_for('account_detail', account_id=account_id))
 
         category_row = db.execute(
-            'SELECT category_id FROM categories WHERE name = ?', (category,)
+            'SELECT category_id FROM categories WHERE name = ? AND (customer_id IS NULL OR customer_id = ?)',
+            (category, session['user_id'])
         ).fetchone() if category else None
         category_id = category_row['category_id'] if category_row else None
 
@@ -721,6 +763,116 @@ def register_routes(app):
         db.commit()
         flash('Transaction removed successfully.', 'success')
         return redirect(url_for('account_detail', account_id=account_id))
+
+    @app.route('/accounts/<int:account_id>/goals/add', methods=['POST'])
+    @login_required
+    @no_cache
+    def add_goal(account_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+
+        name          = request.form.get('goal_name', '').strip()
+        target_str    = request.form.get('target_amount', '').strip()
+        deadline      = request.form.get('deadline', '').strip() or None
+
+        if not name or not target_str:
+            flash('Goal name and target amount are required.', 'warning')
+            return redirect(url_for('account_detail', account_id=account_id))
+
+        try:
+            target = float(target_str)
+            if target <= 0:
+                raise ValueError
+        except ValueError:
+            flash('Target amount must be a positive number.', 'warning')
+            return redirect(url_for('account_detail', account_id=account_id))
+
+        db.execute(
+            'INSERT INTO goals (account_id, name, target_amount, deadline) VALUES (?, ?, ?, ?)',
+            (account_id, name, target, deadline)
+        )
+        db.commit()
+        flash('Goal added.', 'success')
+        return redirect(url_for('account_detail', account_id=account_id))
+
+    @app.route('/accounts/<int:account_id>/goals/<int:goal_id>/delete', methods=['POST'])
+    @login_required
+    @no_cache
+    def delete_goal(account_id, goal_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        account = get_customer_account(db, account_id, session['user_id'])
+        if not account:
+            flash('Account not found.', 'warning')
+            return redirect(url_for('index'))
+
+        db.execute('DELETE FROM goals WHERE goal_id = ? AND account_id = ?', (goal_id, account_id))
+        db.commit()
+        flash('Goal removed.', 'success')
+        return redirect(url_for('account_detail', account_id=account_id))
+
+    @app.route('/budgets/add', methods=['POST'])
+    @login_required
+    @no_cache
+    def add_budget():
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        category_id = request.form.get('category_id', '').strip()
+        max_str     = request.form.get('maximum_amount', '').strip()
+        start_date  = request.form.get('start_date', '').strip() or None
+        end_date    = request.form.get('end_date', '').strip() or None
+
+        if not category_id or not max_str:
+            flash('Category and maximum amount are required.', 'warning')
+            return redirect(url_for('index'))
+
+        try:
+            max_amount = float(max_str)
+            if max_amount <= 0:
+                raise ValueError
+        except ValueError:
+            flash('Maximum amount must be a positive number.', 'warning')
+            return redirect(url_for('index'))
+
+        db = get_db()
+        # Prevent duplicate budget for the same category in overlapping period
+        existing = db.execute(
+            'SELECT 1 FROM budgets WHERE customer_id = ? AND category_id = ?',
+            (session['user_id'], int(category_id))
+        ).fetchone()
+        if existing:
+            flash('You already have a budget for that category. Delete it first.', 'warning')
+            return redirect(url_for('index'))
+
+        db.execute(
+            'INSERT INTO budgets (customer_id, category_id, maximum_amount, start_date, end_date) VALUES (?, ?, ?, ?, ?)',
+            (session['user_id'], int(category_id), max_amount, start_date, end_date)
+        )
+        db.commit()
+        flash('Budget created.', 'success')
+        return redirect(url_for('index'))
+
+    @app.route('/budgets/<int:budget_id>/delete', methods=['POST'])
+    @login_required
+    @no_cache
+    def delete_budget(budget_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('index'))
+
+        db = get_db()
+        db.execute('DELETE FROM budgets WHERE budget_id = ? AND customer_id = ?', (budget_id, session['user_id']))
+        db.commit()
+        flash('Budget removed.', 'success')
+        return redirect(url_for('index'))
 
     @app.route('/support/submit', methods=['POST'])
     @login_required
@@ -1229,7 +1381,108 @@ def register_routes(app):
                 else:
                     flash('Invalid authentication code. Please try again.', 'danger')
 
-        return render_template('settings.html', user=user)
+        custom_categories = []
+        if session.get('role') == 'customer':
+            custom_categories = db.execute(
+                'SELECT * FROM categories WHERE customer_id = ? ORDER BY name',
+                (session['user_id'],)
+            ).fetchall()
+
+        return render_template('settings.html', user=user, custom_categories=custom_categories)
+
+    @app.route('/categories/add', methods=['POST'])
+    @login_required
+    @no_cache
+    def add_category():
+        if session.get('role') != 'customer':
+            return redirect(url_for('settings'))
+
+        name   = request.form.get('cat_name', '').strip()
+        colour = request.form.get('cat_colour', '#AED6F1').strip()
+
+        if not name:
+            flash('Category name is required.', 'warning')
+            return redirect(url_for('settings'))
+
+        db = get_db()
+        existing = db.execute(
+            'SELECT 1 FROM categories WHERE name = ? AND (customer_id IS NULL OR customer_id = ?)',
+            (name, session['user_id'])
+        ).fetchone()
+        if existing:
+            flash(f'A category named "{name}" already exists.', 'warning')
+            return redirect(url_for('settings'))
+
+        db.execute(
+            'INSERT INTO categories (name, colour, customer_id) VALUES (?, ?, ?)',
+            (name, colour, session['user_id'])
+        )
+        db.commit()
+        flash(f'Category "{name}" added.', 'success')
+        return redirect(url_for('settings'))
+
+    @app.route('/categories/<int:category_id>/edit', methods=['POST'])
+    @login_required
+    @no_cache
+    def edit_category(category_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('settings'))
+
+        db = get_db()
+        cat = db.execute(
+            'SELECT * FROM categories WHERE category_id = ? AND customer_id = ?',
+            (category_id, session['user_id'])
+        ).fetchone()
+        if not cat:
+            flash('Category not found.', 'warning')
+            return redirect(url_for('settings'))
+
+        name   = request.form.get('cat_name', '').strip()
+        colour = request.form.get('cat_colour', cat['colour']).strip()
+
+        if not name:
+            flash('Category name is required.', 'warning')
+            return redirect(url_for('settings'))
+
+        clash = db.execute(
+            'SELECT 1 FROM categories WHERE name = ? AND (customer_id IS NULL OR customer_id = ?) AND category_id != ?',
+            (name, session['user_id'], category_id)
+        ).fetchone()
+        if clash:
+            flash(f'A category named "{name}" already exists.', 'warning')
+            return redirect(url_for('settings'))
+
+        db.execute(
+            'UPDATE categories SET name = ?, colour = ? WHERE category_id = ?',
+            (name, colour, category_id)
+        )
+        db.commit()
+        flash('Category updated.', 'success')
+        return redirect(url_for('settings'))
+
+    @app.route('/categories/<int:category_id>/delete', methods=['POST'])
+    @login_required
+    @no_cache
+    def delete_category(category_id):
+        if session.get('role') != 'customer':
+            return redirect(url_for('settings'))
+
+        db = get_db()
+        cat = db.execute(
+            'SELECT * FROM categories WHERE category_id = ? AND customer_id = ?',
+            (category_id, session['user_id'])
+        ).fetchone()
+        if not cat:
+            flash('Category not found.', 'warning')
+            return redirect(url_for('settings'))
+
+        # Nullify transactions and remove budgets using this category
+        db.execute('UPDATE transactions SET category_id = NULL WHERE category_id = ?', (category_id,))
+        db.execute('DELETE FROM budgets WHERE category_id = ? AND customer_id = ?', (category_id, session['user_id']))
+        db.execute('DELETE FROM categories WHERE category_id = ?', (category_id,))
+        db.commit()
+        flash(f'Category "{cat["name"]}" deleted.', 'success')
+        return redirect(url_for('settings'))
 
     @app.route('/contact')
     def contact():
