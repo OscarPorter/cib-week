@@ -21,13 +21,13 @@
         <div class="col-12">
             <div class="card card-surface p-4">
                 <h1 class="page-heading mb-2">Manager Dashboard</h1>
-                <p class="text-muted mb-0">Assign advisers to clients based on their needs and adviser expertise.</p>
+                <p class="text-muted mb-0">Assign advisers, monitor performance, and manage client support.</p>
             </div>
         </div>
 
         <div class="col-12">
             <div class="card card-surface p-4">
-                <ul class="nav nav-pills mb-4" id="managerTabs" role="tablist">
+                <ul class="nav nav-pills mb-4 flex-wrap" id="managerTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pending-panel" type="button" role="tab">
                             Pending Requests
@@ -40,7 +40,7 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#assignments-panel" type="button" role="tab">
-                            Current Assignments
+                            Assignments
                             <span class="badge bg-secondary ms-1">{{ assignments|length }}</span>
                         </button>
                     </li>
@@ -48,6 +48,22 @@
                         <button class="nav-link" data-bs-toggle="pill" data-bs-target="#advisers-panel" type="button" role="tab">
                             Adviser Roster
                             <span class="badge bg-secondary ms-1">{{ advisers|length }}</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#support-panel" type="button" role="tab">
+                            Support Tickets
+                            {% set open_tickets = support_tickets | selectattr('status', 'equalto', 'open') | list | length %}
+                            {% if open_tickets %}
+                                <span class="badge bg-danger ms-1">{{ open_tickets }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary ms-1">0</span>
+                            {% endif %}
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="perf-tab" data-bs-toggle="pill" data-bs-target="#perf-panel" type="button" role="tab">
+                            Performance
                         </button>
                     </li>
                 </ul>
@@ -62,8 +78,7 @@
                                 <div class="adviser-client-row">
                                     <div class="d-flex align-items-center gap-3 mb-3">
                                         <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
-                                             alt="{{ req['name'] }}"
-                                             class="client-pfp flex-shrink-0">
+                                             alt="{{ req['name'] }}" class="client-pfp flex-shrink-0">
                                         <div class="flex-grow-1 min-w-0">
                                             <div class="fw-semibold">{{ req['name'] }}</div>
                                             <div class="text-muted small">{{ req['description'] or 'No description provided.' }}</div>
@@ -83,9 +98,7 @@
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <div class="text-center py-5 text-muted">
-                                <p class="mb-0">No pending requests at this time.</p>
-                            </div>
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No pending requests at this time.</p></div>
                         {% endif %}
                     </div>
 
@@ -97,8 +110,8 @@
                                     <thead>
                                         <tr>
                                             <th>Customer</th>
-                                            <th>Assigned Adviser</th>
-                                            <th class="text-end">Action</th>
+                                            <th>Current Adviser</th>
+                                            <th class="text-end">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -107,9 +120,22 @@
                                             <td class="fw-medium">{{ a['customer_name'] }}</td>
                                             <td>{{ a['adviser_name'] }}</td>
                                             <td class="text-end">
-                                                <form method="post" action="{{ url_for('unassign_adviser', customer_id=a['customer_id']) }}">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Unassign</button>
-                                                </form>
+                                                <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                                    <form method="post" action="{{ url_for('reassign_client', customer_id=a['customer_id']) }}" class="d-flex gap-1">
+                                                        <select name="new_adviser_id" class="form-select form-select-sm" style="min-width:130px" required>
+                                                            <option value="">Reassign to...</option>
+                                                            {% for adv in advisers %}
+                                                                {% if adv['adviser_id'] != a['adviser_id'] %}
+                                                                <option value="{{ adv['adviser_id'] }}">{{ adv['name'] }}</option>
+                                                                {% endif %}
+                                                            {% endfor %}
+                                                        </select>
+                                                        <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0">Move</button>
+                                                    </form>
+                                                    <form method="post" action="{{ url_for('unassign_adviser', customer_id=a['customer_id']) }}">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -117,32 +143,180 @@
                                 </table>
                             </div>
                         {% else %}
-                            <div class="text-center py-5 text-muted">
-                                <p class="mb-0">No assignments yet.</p>
-                            </div>
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No assignments yet.</p></div>
                         {% endif %}
                     </div>
 
                     <!-- Adviser Roster -->
                     <div class="tab-pane fade" id="advisers-panel" role="tabpanel">
                         {% if advisers %}
-                            <div class="d-flex flex-column gap-3">
+                            <div class="accordion" id="adviserAccordion">
                                 {% for adviser in advisers %}
-                                <div class="adviser-client-row d-flex align-items-center gap-3">
-                                    <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
-                                         alt="{{ adviser['name'] }}"
-                                         class="client-pfp flex-shrink-0">
-                                    <div class="flex-grow-1 min-w-0">
-                                        <div class="fw-semibold">{{ adviser['name'] }}</div>
-                                        <div class="text-muted small">{{ adviser['description'] or 'No description provided.' }}</div>
+                                <div class="accordion-item border-0 mb-2">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed rounded" type="button"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#adviser-{{ adviser['adviser_id'] }}"
+                                                aria-expanded="false">
+                                            <div class="d-flex align-items-center gap-3 w-100 me-3">
+                                                <img src="{{ url_for('static', filename='blank_pfp.jpg') }}"
+                                                     alt="{{ adviser['name'] }}" class="client-pfp flex-shrink-0"
+                                                     style="width:36px;height:36px;">
+                                                <div class="flex-grow-1 min-w-0">
+                                                    <div class="fw-semibold">{{ adviser['name'] }}</div>
+                                                    <div class="text-muted small">{{ adviser['description'] or 'No description provided.' }}</div>
+                                                </div>
+                                                <span class="badge bg-primary-subtle text-primary rounded-pill flex-shrink-0">
+                                                    {{ adviser_clients[adviser['adviser_id']]|length }} client(s)
+                                                </span>
+                                            </div>
+                                        </button>
+                                    </h2>
+                                    <div id="adviser-{{ adviser['adviser_id'] }}" class="accordion-collapse collapse" data-bs-parent="#adviserAccordion">
+                                        <div class="accordion-body pt-2">
+                                            {% set clients = adviser_clients[adviser['adviser_id']] %}
+                                            {% if clients %}
+                                                <ul class="list-group list-group-flush">
+                                                    {% for client in clients %}
+                                                    <li class="list-group-item px-0 py-2 d-flex align-items-center gap-2">
+                                                        <span class="fw-medium">{{ client['name'] }}</span>
+                                                        <span class="text-muted small">{{ client['email'] }}</span>
+                                                    </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <p class="text-muted mb-0 small">No clients assigned.</p>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                 </div>
                                 {% endfor %}
                             </div>
                         {% else %}
-                            <div class="text-center py-5 text-muted">
-                                <p class="mb-0">No advisers available.</p>
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No advisers available.</p></div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Support Tickets -->
+                    <div class="tab-pane fade" id="support-panel" role="tabpanel">
+                        {% if support_tickets %}
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Type</th>
+                                            <th>Customer</th>
+                                            <th>Adviser</th>
+                                            <th>Subject</th>
+                                            <th>Submitted</th>
+                                            <th>Status</th>
+                                            <th class="text-end">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for ticket in support_tickets %}
+                                        <tr>
+                                            <td>
+                                                {% if ticket['type'] == 'complaint' %}
+                                                    <span class="badge bg-danger">Complaint</span>
+                                                {% else %}
+                                                    <span class="badge bg-info text-dark">Help</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="fw-medium">{{ ticket['customer_name'] }}</td>
+                                            <td class="text-muted small">{{ ticket['adviser_name'] }}</td>
+                                            <td>
+                                                <div>{{ ticket['subject'] }}</div>
+                                                <div class="text-muted small">{{ ticket['message'][:50] }}{% if ticket['message']|length > 50 %}…{% endif %}</div>
+                                            </td>
+                                            <td class="text-muted small text-nowrap">{{ ticket['created_at'][:10] if ticket['created_at'] else '—' }}</td>
+                                            <td>
+                                                {% if ticket['status'] == 'open' %}
+                                                    <span class="badge bg-warning text-dark">Open</span>
+                                                {% else %}
+                                                    <span class="badge bg-success">Resolved</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end">
+                                                {% if ticket['status'] == 'open' %}
+                                                <form method="post" action="{{ url_for('resolve_ticket', ticket_id=ticket['ticket_id']) }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success">Resolve</button>
+                                                </form>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No support tickets yet.</p></div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Performance -->
+                    <div class="tab-pane fade" id="perf-panel" role="tabpanel">
+                        {% if perf_rows %}
+                            <div class="row gy-4 mb-4">
+                                <div class="col-lg-6">
+                                    <div class="card card-surface p-3">
+                                        <h6 class="mb-1">Avg Task Completion Time (hours)</h6>
+                                        <p class="text-muted small mb-3">Average hours from task creation to completion per adviser.</p>
+                                        <canvas id="perfTimeChart" style="max-height:260px"></canvas>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="card card-surface p-3">
+                                        <h6 class="mb-1">Current Workload</h6>
+                                        <p class="text-muted small mb-3">Open tasks and assigned clients per adviser.</p>
+                                        <canvas id="perfWorkloadChart" style="max-height:260px"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Adviser</th>
+                                            <th class="text-center">Clients</th>
+                                            <th class="text-center">Open Tasks</th>
+                                            <th class="text-center">Completed Tasks</th>
+                                            <th class="text-center">Avg Completion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in perf_rows %}
+                                        <tr>
+                                            <td class="fw-medium">{{ row['name'] }}</td>
+                                            <td class="text-center">{{ row['client_count'] or 0 }}</td>
+                                            <td class="text-center">
+                                                {% if (row['open_tasks'] or 0) > 5 %}
+                                                    <span class="badge bg-danger">{{ row['open_tasks'] }}</span>
+                                                {% elif (row['open_tasks'] or 0) > 0 %}
+                                                    <span class="badge bg-warning text-dark">{{ row['open_tasks'] }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-success">0</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-center text-muted">{{ row['completed_tasks'] or 0 }}</td>
+                                            <td class="text-center text-muted">
+                                                {% if row['avg_completion_hours'] %}
+                                                    {% if row['avg_completion_hours'] < 1 %}
+                                                        {{ '%.0f'|format(row['avg_completion_hours'] * 60) }} min
+                                                    {% else %}
+                                                        {{ '%.1f'|format(row['avg_completion_hours']) }} hrs
+                                                    {% endif %}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-5 text-muted"><p class="mb-0">No adviser performance data available yet.</p></div>
                         {% endif %}
                     </div>
 
@@ -151,4 +325,68 @@
         </div>
     </div>
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    var perfRows = {{ perf_rows_json | tojson }};
+    var perfChartsInit = false;
+
+    function initPerfCharts() {
+        if (perfChartsInit || !perfRows.length) return;
+        perfChartsInit = true;
+
+        var names = perfRows.map(function(r) { return r.name; });
+        var avgHours = perfRows.map(function(r) { return r.avg_completion_hours ? parseFloat(r.avg_completion_hours.toFixed(2)) : 0; });
+        var openTasks = perfRows.map(function(r) { return r.open_tasks || 0; });
+        var clientCounts = perfRows.map(function(r) { return r.client_count || 0; });
+
+        var ctxTime = document.getElementById('perfTimeChart');
+        if (ctxTime) {
+            new Chart(ctxTime, {
+                type: 'bar',
+                data: {
+                    labels: names,
+                    datasets: [{
+                        label: 'Avg completion (hrs)',
+                        data: avgHours,
+                        backgroundColor: 'rgba(37,99,235,0.7)',
+                        borderColor: '#2563eb',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: function(v) { return v + 'h'; } } }
+                    }
+                }
+            });
+        }
+
+        var ctxWork = document.getElementById('perfWorkloadChart');
+        if (ctxWork) {
+            new Chart(ctxWork, {
+                type: 'bar',
+                data: {
+                    labels: names,
+                    datasets: [
+                        { label: 'Open Tasks', data: openTasks, backgroundColor: 'rgba(245,158,11,0.7)', borderColor: '#d97706', borderWidth: 1, borderRadius: 4 },
+                        { label: 'Clients', data: clientCounts, backgroundColor: 'rgba(16,185,129,0.7)', borderColor: '#059669', borderWidth: 1, borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
+    }
+
+    document.getElementById('perf-tab').addEventListener('shown.bs.tab', initPerfCharts);
+</script>
 {% endblock %}

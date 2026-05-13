@@ -1,37 +1,87 @@
-{% extends 'base.html' %}
-{% block title %}Two-Factor Authentication{% endblock %}
+{% extends 'base_auth.html' %}
+{% block title %}Verify Identity — DWK Finance{% endblock %}
+
 {% block body %}
-<main class="container main-content">
-    <div class="auth-wrapper mx-auto">
-        <div class="auth-card">
-            <div class="text-center mb-4">
-                <h1 class="h3">Two-Factor Authentication</h1>
-                <p class="text-muted">Enter the code from your authenticator app.</p>
-            </div>
+<div class="auth-split">
+
+    <!-- Left panel: brand -->
+    <div class="auth-split-left">
+        <img src="{{ url_for('static', filename='VECTURA.png') }}" alt="DWK" class="auth-logo-img">
+        <p class="auth-brand-tagline">Smart Banking,&nbsp;made wonderfully simple.</p>
+    </div>
+
+    <!-- Right panel: verification -->
+    <div class="auth-split-right">
+        <div class="auth-form-wrap">
+
+            <h1 class="auth-heading">Verify your identity</h1>
+            <p class="auth-subheading">
+                We&rsquo;ve sent a security code to your registered contact.<br>
+                Please enter the code to continue.
+            </p>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                            <strong>{{ 'Notice' if category == 'info' else category.title() }}:</strong> {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                     {% endfor %}
                 {% endif %}
             {% endwith %}
 
-            <form method="post" class="auth-form">
-                <div class="mb-3">
-                    <label for="code" class="form-label">Authentication Code</label>
-                    <input id="code" name="code" type="text" class="form-control form-control-lg" placeholder="123456" required autofocus autocomplete="one-time-code">
+            <form method="post" id="otpForm">
+                <!-- 4-digit OTP boxes -->
+                <div class="otp-row">
+                    <input class="otp-box" type="text" inputmode="numeric" maxlength="1"
+                           id="otp1" autocomplete="off" aria-label="Digit 1">
+                    <input class="otp-box" type="text" inputmode="numeric" maxlength="1"
+                           id="otp2" autocomplete="off" aria-label="Digit 2">
+                    <input class="otp-box" type="text" inputmode="numeric" maxlength="1"
+                           id="otp3" autocomplete="off" aria-label="Digit 3">
+                    <input class="otp-box" type="text" inputmode="numeric" maxlength="1"
+                           id="otp4" autocomplete="off" aria-label="Digit 4">
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg w-100">Verify Code</button>
+                <input type="hidden" name="code" id="codeHidden">
+
+                <button type="submit" class="btn-auth-solid">Verify</button>
             </form>
 
-            <div class="mt-4 text-center">
-                <a href="{{ url_for('login') }}" class="text-decoration-none">Back to sign in</a>
+            <div class="text-center mt-3">
+                <a href="{{ url_for('login') }}" class="auth-link-muted">
+                    I haven&rsquo;t received the code
+                </a>
             </div>
+
         </div>
     </div>
-</main>
+
+</div>
+
+<script>
+(function () {
+    const boxes = document.querySelectorAll('.otp-box');
+    const hidden = document.getElementById('codeHidden');
+
+    boxes.forEach((box, i) => {
+        box.addEventListener('input', () => {
+            box.value = box.value.replace(/\D/g, '').slice(-1);
+            if (box.value && i < boxes.length - 1) boxes[i + 1].focus();
+            updateHidden();
+        });
+
+        box.addEventListener('keydown', e => {
+            if (e.key === 'Backspace' && !box.value && i > 0) boxes[i - 1].focus();
+        });
+    });
+
+    function updateHidden() {
+        hidden.value = Array.from(boxes).map(b => b.value).join('');
+    }
+
+    document.getElementById('otpForm').addEventListener('submit', updateHidden);
+    boxes[0].focus();
+})();
+</script>
 {% endblock %}

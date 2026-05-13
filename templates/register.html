@@ -1,0 +1,78 @@
+{% extends 'base_auth.html' %}
+{% block title %}Create Account — DWK Finance{% endblock %}
+
+{% block body %}
+<div class="auth-split">
+
+    <!-- Left panel: brand -->
+    <div class="auth-split-left">
+        <img src="{{ url_for('static', filename='VECTURA.png') }}" alt="DWK" class="auth-logo-img">
+        <p class="auth-brand-tagline">Smart Banking,&nbsp;made wonderfully simple.</p>
+    </div>
+
+    <!-- Right panel: form -->
+    <div class="auth-split-right">
+        <div class="auth-form-wrap">
+
+            <a href="{{ url_for('login') }}" class="auth-link-muted d-inline-block mb-3">← Back to sign in</a>
+
+            <h1 class="auth-heading">Create an account</h1>
+            <p class="auth-subheading">Join DWK Finance and take control of your finances.</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="post" novalidate>
+
+                <!-- Full name -->
+                <div class="mb-3">
+                    <label class="auth-field-label" for="name">Full Name</label>
+                    <input id="name" name="name" type="text" class="auth-input"
+                           placeholder="Jane Smith" required autofocus autocomplete="name"
+                           value="{{ form_data.name if form_data }}">
+                </div>
+
+                <!-- Email -->
+                <div class="mb-3">
+                    <label class="auth-field-label" for="email">Email Address</label>
+                    <input id="email" name="email" type="email" class="auth-input"
+                           placeholder="name@company.com" required autocomplete="email"
+                           value="{{ form_data.email if form_data }}">
+                </div>
+
+                <!-- Password -->
+                <div class="mb-3">
+                    <label class="auth-field-label" for="password">Password</label>
+                    <input id="password" name="password" type="password" class="auth-input"
+                           placeholder="••••••••" required autocomplete="new-password">
+                </div>
+
+                <!-- Confirm password -->
+                <div class="mb-4">
+                    <label class="auth-field-label" for="confirm_password">Confirm Password</label>
+                    <input id="confirm_password" name="confirm_password" type="password" class="auth-input"
+                           placeholder="••••••••" required autocomplete="new-password">
+                </div>
+
+                <button type="submit" class="btn-auth-outline">Create Account</button>
+
+            </form>
+
+            <div class="auth-signup-row mt-3">
+                <span class="auth-link-muted">Already have an account?</span>
+                <a href="{{ url_for('login') }}" class="auth-link-dark ms-1">Sign in</a>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
