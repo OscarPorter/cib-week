@@ -29,6 +29,14 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
             return redirect(url_for('login'))
+        last_active = session.get('last_active')
+        if last_active:
+            elapsed = datetime.utcnow() - datetime.fromisoformat(last_active)
+            if elapsed > timedelta(minutes=15):
+                session.clear()
+                flash('You were logged out due to inactivity.', 'warning')
+                return redirect(url_for('login'))
+        session['last_active'] = datetime.utcnow().isoformat()
         return f(*args, **kwargs)
     return decorated_function
 
