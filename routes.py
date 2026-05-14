@@ -13,8 +13,8 @@ import random
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.chart import BarChart, LineChart, Reference
-from collections import defaultdict
 
+# prevents being able to go back to previous pages after logout.
 def no_cache(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -137,14 +137,15 @@ def build_transactions_workbook(rows, customer_name):
 
     ws2 = wb.create_sheet('Summary')
 
-    cat_totals = defaultdict(float)
-    month_totals = defaultdict(float)
+    cat_totals = {}
+    month_totals = {}
     for row in rows:
         amt = row['amount'] or 0
         if amt < 0:
             cat = row['category'] or 'Uncategorised'
-            cat_totals[cat] += abs(amt)
-            month_totals[str(row['transaction_date'])[:7]] += abs(amt)
+            cat_totals[cat] = cat_totals.get(cat, 0) + abs(amt)
+            month_key = str(row['transaction_date'])[:7]
+            month_totals[month_key] = month_totals.get(month_key, 0) + abs(amt)
 
     sorted_cats = sorted(cat_totals.items(), key=lambda x: x[1], reverse=True)
     sorted_months = sorted(month_totals.items())
@@ -215,7 +216,8 @@ def register_routes(app):
     @app.route('/')
     @no_cache
     def index():
-        if 'user_id' not in session: return redirect(url_for('login'))
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
         db = get_db()
         if session.get('role') == 'customer':
             accounts = db.execute(
@@ -370,7 +372,6 @@ def register_routes(app):
             ORDER BY t.transaction_date ASC, t.transaction_id ASC
         ''', (account_id,)).fetchall()
 
-        # Group by date for line chart
         date_groups = {}
         for t in transactions_asc:
             date = str(t['transaction_date'])[:10]
@@ -395,7 +396,6 @@ def register_routes(app):
             line_expenses.append(round(date_groups[date]['expenses'], 2))
             line_revenue.append(round(date_groups[date]['revenue'], 2))
 
-        # Group expenses by category for expenditure pie chart
         cat_totals, cat_colours = {}, {}
         for t in transactions_asc:
             amount = t['amount'] or 0
@@ -404,7 +404,6 @@ def register_routes(app):
                 cat_totals[cat] = cat_totals.get(cat, 0) + abs(amount)
                 cat_colours[cat] = t['category_colour'] or '#AED6F1'
 
-        # Group income by category for income pie chart
         income_totals, income_colours = {}, {}
         for t in transactions_asc:
             amount = t['amount'] or 0
@@ -514,13 +513,13 @@ def register_routes(app):
             flash('Account not found.', 'warning')
             return redirect(url_for('index'))
 
-        merchant        = request.form.get('merchant', '').strip() or None
-        payment_method  = request.form.get('payment_method', '').strip() or None
+        merchant = request.form.get('merchant', '').strip() or None
+        payment_method = request.form.get('payment_method', '').strip() or None
         transaction_date = request.form.get('transaction_date', '').strip() or datetime.utcnow().strftime('%Y-%m-%d')
 
-        names      = request.form.getlist('name[]')
+        names = request.form.getlist('name[]')
         categories = request.form.getlist('category[]')
-        amounts    = request.form.getlist('amount[]')
+        amounts = request.form.getlist('amount[]')
 
         rows = []
         for name, category, amount_str in zip(names, categories, amounts):
@@ -806,7 +805,6 @@ def register_routes(app):
             ORDER BY st.status ASC, st.created_at DESC
         ''').fetchall()
 
-        # Performance metrics per adviser
         perf_rows = db.execute('''
             SELECT a.adviser_id, a.name,
                    COUNT(DISTINCT ua.customer_id) AS client_count,
@@ -823,7 +821,6 @@ def register_routes(app):
             ORDER BY a.name
         ''').fetchall()
 
-        # Clients per adviser for roster view
         adviser_clients = {}
         for adv in advisers:
             adviser_clients[adv['adviser_id']] = db.execute('''
@@ -870,9 +867,10 @@ def register_routes(app):
             "INSERT INTO user_assignments (adviser_id, customer_id, status) VALUES (?, ?, 'pending')",
             (adviser_id, customer_id)
         )
+        customer_name = db.execute('SELECT name FROM customers WHERE customer_id = ?', (customer_id,)).fetchone()['name']
         db.execute('DELETE FROM customer_requests WHERE customer_id = ?', (customer_id,))
         db.commit()
-        flash(f'Adviser assigned to {db.execute("SELECT name FROM customers WHERE customer_id = ?", (customer_id,)).fetchone()["name"]}.', 'success')
+        flash(f'Adviser assigned to {customer_name}.', 'success')
         return redirect(url_for('manager_dashboard'))
 
     @app.route('/manager/unassign/<int:customer_id>', methods=['POST'])
@@ -948,9 +946,9 @@ def register_routes(app):
             flash('Account not found.', 'warning')
             return redirect(url_for('index'))
 
-        name          = request.form.get('goal_name', '').strip()
-        target_str    = request.form.get('target_amount', '').strip()
-        deadline      = request.form.get('deadline', '').strip() or None
+        name = request.form.get('goal_name', '').strip()
+        target_str = request.form.get('target_amount', '').strip()
+        deadline = request.form.get('deadline', '').strip() or None
 
         if not name or not target_str:
             flash('Goal name and target amount are required.', 'warning')
@@ -998,9 +996,9 @@ def register_routes(app):
             return redirect(url_for('index'))
 
         category_id = request.form.get('category_id', '').strip()
-        max_str     = request.form.get('maximum_amount', '').strip()
-        start_date  = request.form.get('start_date', '').strip() or None
-        end_date    = request.form.get('end_date', '').strip() or None
+        max_str = request.form.get('maximum_amount', '').strip()
+        start_date = request.form.get('start_date', '').strip() or None
+        end_date = request.form.get('end_date', '').strip() or None
 
         if not category_id or not max_str:
             flash('Category and maximum amount are required.', 'warning')
@@ -1015,7 +1013,6 @@ def register_routes(app):
             return redirect(url_for('index'))
 
         db = get_db()
-        # Prevent duplicate budget for the same category in overlapping period
         existing = db.execute(
             'SELECT 1 FROM budgets WHERE customer_id = ? AND category_id = ?',
             (session['user_id'], int(category_id))
@@ -1090,7 +1087,7 @@ def register_routes(app):
     @login_required
     @no_cache
     def resolve_ticket(ticket_id):
-        if session.get('role') not in ('adviser',) and not session.get('is_manager'):
+        if session.get('role') != 'adviser' and not session.get('is_manager'):
             return redirect(url_for('index'))
         db = get_db()
         db.execute(
@@ -1254,10 +1251,10 @@ def register_routes(app):
             return redirect(url_for('index'))
 
         if request.method == 'POST':
-            name     = request.form.get('name', '').strip()
-            email    = request.form.get('email', '').strip().lower()
+            name = request.form.get('name', '').strip()
+            email = request.form.get('email', '').strip().lower()
             password = request.form.get('password', '')
-            confirm  = request.form.get('confirm_password', '')
+            confirm = request.form.get('confirm_password', '')
 
             if not name or not email or not password:
                 flash('All fields are required.', 'danger')
@@ -1319,7 +1316,7 @@ def register_routes(app):
 
                 session.update(pending_data)
                 if role == 'adviser' and pending_data['is_manager']:
-                    flash('Welcome manager. Your adviser account has is_manager access.', 'success')
+                    flash('Welcome. You are signed in as a manager.', 'success')
                 return redirect(url_for('index'))
 
             flash('Invalid email or password. Please try again.', 'danger')
@@ -1413,48 +1410,26 @@ def register_routes(app):
 
     @app.route('/forgot-password', methods=['GET', 'POST'])
     def forgot_password():
-        """Handle password reset requests"""
         if request.method == 'POST':
-            email = request.form.get('email', '').strip()
-            db = get_db()
-            
-            #Check if email exists in either customers or advisers table
-            customer = db.execute('SELECT * FROM customers WHERE email = ?', (email,)).fetchone()
-            adviser = db.execute('SELECT * FROM advisers WHERE email = ?', (email,)).fetchone()
-            
-            if customer or adviser:
-                # TODO: In production, send a password reset email here
-                # For now, we'll just show a success message
-                flash(
-                    'If an account exists with that email, you will receive password reset instructions shortly. '
-                    'Please check your email and follow the instructions provided.',
-                    'success'
-                )
-            else:
-                #show success message for security reasons
-                flash(
-                    'If an account exists with that email, you will receive password reset instructions shortly. '
-                    'Please check your email and follow the instructions provided.',
-                    'info'
-                )
-            
+            flash(
+                'If an account exists with that email, you will receive password reset instructions shortly. '
+                'Please check your email and follow the instructions provided.',
+                'info'
+            )
             return redirect(url_for('login'))
-        
+
         return render_template('forgot_password.html')
 
     @app.route('/about-vectura')
     def about_vectura():
-        """Serve the Vectura team information page"""
         return render_template('about_vectura.html')
 
     @app.route('/terms')
     def terms():
-        """Serve the Terms of Service page"""
         return render_template('terms.html')
 
     @app.route('/privacy')
     def privacy():
-        """Serve the Privacy Policy page"""
         return render_template('privacy.html')
 
     @app.route('/settings', methods=['GET', 'POST'])
@@ -1472,14 +1447,13 @@ def register_routes(app):
             action = request.form.get('action')
 
             if action == 'update_profile':
-                name  = request.form.get('name', '').strip()
+                name = request.form.get('name', '').strip()
                 email = request.form.get('email', '').strip().lower()
 
                 if not name or not email:
                     flash('Name and email are required.', 'danger')
                     return redirect(url_for('settings'))
 
-                # Check email is not already taken by another account
                 if session['role'] == 'adviser':
                     clash = db.execute(
                         'SELECT 1 FROM advisers WHERE email = ? AND adviser_id != ?',
@@ -1509,9 +1483,9 @@ def register_routes(app):
                 return redirect(url_for('settings'))
 
             elif action == 'change_password':
-                current  = request.form.get('current_password', '')
-                new_pw   = request.form.get('new_password', '')
-                confirm  = request.form.get('confirm_password', '')
+                current = request.form.get('current_password', '')
+                new_pw = request.form.get('new_password', '')
+                confirm = request.form.get('confirm_password', '')
 
                 if not check_password_hash(user['password'], current):
                     flash('Current password is incorrect.', 'danger')
@@ -1565,7 +1539,7 @@ def register_routes(app):
         if session.get('role') != 'customer':
             return redirect(url_for('settings'))
 
-        name   = request.form.get('cat_name', '').strip()
+        name = request.form.get('cat_name', '').strip()
         colour = request.form.get('cat_colour', '#AED6F1').strip()
 
         if not name:
@@ -1605,7 +1579,7 @@ def register_routes(app):
             flash('Category not found.', 'warning')
             return redirect(url_for('settings'))
 
-        name   = request.form.get('cat_name', '').strip()
+        name = request.form.get('cat_name', '').strip()
         colour = request.form.get('cat_colour', cat['colour']).strip()
 
         if not name:
@@ -1644,7 +1618,6 @@ def register_routes(app):
             flash('Category not found.', 'warning')
             return redirect(url_for('settings'))
 
-        # Nullify transactions and remove budgets using this category
         db.execute('UPDATE transactions SET category_id = NULL WHERE category_id = ?', (category_id,))
         db.execute('DELETE FROM budgets WHERE category_id = ? AND customer_id = ?', (category_id, session['user_id']))
         db.execute('DELETE FROM categories WHERE category_id = ?', (category_id,))
@@ -1654,5 +1627,4 @@ def register_routes(app):
 
     @app.route('/contact')
     def contact():
-        """Serve the Contact Us page"""
         return render_template('contact.html')

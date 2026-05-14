@@ -1,3 +1,5 @@
+REQUIRES PYTHON 3.11, OTHERWISE DEPENDENCIES WILL NOT WORK. 
+
 Install dependencies first:
 
 python -m pip install -r requirements.txt
@@ -9,6 +11,8 @@ python app.py
 Add test users by running the app and closing it (to ensure the database has been created) and then run:
 
 python seed_test_users.py
+
+Generative AI disclaimer: AI was used to generated the HTML files and test users.
 
 Logins
 ------
