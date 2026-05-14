@@ -64,7 +64,7 @@ body.auth-layout {
 }
 
 .auth-logo-img {
-    max-width: 160px;
+    max-width: 600px;
     height: auto;
     object-fit: contain;
     margin-bottom: 1rem;
